@@ -3,6 +3,8 @@ import time
 import pybullet_data
 import random
 import numpy as np
+import math
+from sklearn.linear_model import LinearRegression
 
 # def 
 # Initialize PyBullet
@@ -60,6 +62,7 @@ bufferShrinked = False
 preControl = 0
 prev_pos_diff = 0
 prev_vel_diff = 0
+candidate_count = 20
 
 dataset = []
 
@@ -120,6 +123,7 @@ while True:
 
     # Enforce contact if no contact has been detected for a period of time
     if (no_contact_counter >= no_contact_tolerance and preContact == False):
+        ## Naive heuristic for enforcing contacts
         print("Enforcing contacts")
         # Define the contact enforcement velocity as a normalized vector of the relative position
         
@@ -139,11 +143,31 @@ while True:
         time.sleep(timeStep)
         continue
         
+        ## Teleport to the best sampled position
+        # Sample k possible positions around the current robot, and use the current linearized function to predict which is the best velocity
+        # best_velocity = 10000
+        # for i in range (0, candidate_count):
+        #     x_alteration = random.uniform(-1, 1)
+        #     y_alteration = random.uniform(-1, 1)
+            
+        #     candidate_robot_pos_x = x_alteration + disk1_pos[0]
+        #     candidate_robot_pos_y = y_alteration + disk1_pos[1]
+
+        #     temp_dist = math.sqrt((candidate_robot_pos_x - disk2_pos[0]) ** 2 + (candidate_robot_pos_y - disk2_pos[1]) ** 2)
+        #     if (temp_dist < 0.2): # The two disks are overlapping
+        #         i -= 1
+        #     else:
+        #         current_velocity = 
+        #         best_velocity = min(best_velocity, current_velocity)
+                       
 
 
-    # start_time = time.time()
+
+
     # update the dataset with recent contact dynamics
+
     if (len(dataset) >= bufferSize):
+        start_time = time.time()
         if preContact:
             dataset.pop(0)
             dataset.append((prev_vel_diff, disk2_vel[:2], prev_pos_diff))
@@ -152,18 +176,32 @@ while True:
         object_vel = np.array([item[1] for item in dataset])
         pos_diff = np.array([item[2] for item in dataset])
         
-        X = np.hstack((object_vel, pos_diff, np.ones((object_vel.shape[0], 1))))
-        coefficients_x1 = np.linalg.lstsq(X, vel_diff[:, 0], rcond=None)[0]
-        coefficients_x2 = np.linalg.lstsq(X, vel_diff[:, 1], rcond=None)[0]
+        # X = np.hstack((object_vel, pos_diff, np.ones((object_vel.shape[0], 1))))
+        # coefficients_x1 = np.linalg.lstsq(X, vel_diff[:, 0], rcond=None)[0]
+        # coefficients_x2 = np.linalg.lstsq(X, vel_diff[:, 1], rcond=None)[0]
 
-        A_x1, A_x2, B_x1, B_x2, C1 = coefficients_x1
-        A_y1, A_y2, B_y1, B_y2, C2 = coefficients_x2
-        print(coefficients_x1)
-        print(coefficients_x2)
+        # A_x1, A_x2, B_x1, B_x2, C1 = coefficients_x1
+        # A_y1, A_y2, B_y1, B_y2, C2 = coefficients_x2
+        # print("coefficient_x", coefficients_x1)
+        # print("coefficient_y", coefficients_x2)
+        features = np.hstack([object_vel, pos_diff, np.ones((bufferSize, 1))])
+        targets = vel_diff
 
-    # end_time = time.time()
-    # elapsed_time = end_time - start_time
-    # print("Elapsed time for linearization: ", elapsed_time) 
+        model = LinearRegression().fit(features, targets)
+
+        coefficients = model.coef_
+        intercept = model.intercept_
+
+        A_B = coefficients[:, :-1]
+
+        A = A_B[:, :2]
+        B = A_B[:, 2:]
+        C = intercept
+        print("A", A, "B", B, "C", C)
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print("Elapsed time for linearization: ", elapsed_time) 
 
     # execute greedy control based on the current model
         desired_object_vel = np.array([goal_x_pos - disk2_pos[0], goal_y_pos - disk2_pos[1]])
@@ -172,24 +210,27 @@ while True:
         desired_object_vel = normalized_desired_object_vel * 0.05
 
         print("desired velocity", desired_object_vel)
-        desired_object_vel = desired_object_vel.reshape(1, -1)
+        # desired_object_vel = desired_object_vel.reshape(1, -1)
+        # disk_pos_diff_array = np.array(disk_pos_diff)
+        # disk_pos_diff_array = disk_pos_diff_array.reshape(1, -1)
+        # current_step = np.hstack((desired_object_vel, disk_pos_diff_array, np.ones((desired_object_vel.shape[0], 1))))
+
+        # predicted_vel_diff_x = np.dot(current_step, coefficients_x1)
+        # predicted_vel_diff_y = np.dot(current_step, coefficients_x2)
         disk_pos_diff_array = np.array(disk_pos_diff)
-        disk_pos_diff_array = disk_pos_diff_array.reshape(1, -1)
-        current_step = np.hstack((desired_object_vel, disk_pos_diff_array, np.ones((desired_object_vel.shape[0], 1))))
+        predicted_vel_diff = desired_object_vel.dot(A.T) + disk_pos_diff_array.dot(B.T) + C
 
-        predicted_vel_diff_x = np.dot(current_step, coefficients_x1)
-        predicted_vel_diff_y = np.dot(current_step, coefficients_x2)
+        print("predicted robot velocity", predicted_vel_diff[0], predicted_vel_diff[1])
+        print(predicted_vel_diff.shape)
+        
+        disk1_execute_x = disk2_vel[0] - predicted_vel_diff[0]
+        disk1_execute_y = disk2_vel[1] - predicted_vel_diff[1]
 
-        print(predicted_vel_diff_x)
-
-        disk1_execute_x = disk2_vel[0] - predicted_vel_diff_x[0]
-        disk1_execute_y = disk2_vel[1] - predicted_vel_diff_y[0]
-
-        execution_velocity = np.array([disk1_execute_x, disk1_execute_y])
-        magnitude = np.linalg.norm(desired_object_vel)
-        normalized_execution_velocity = execution_velocity / magnitude * 0.05
-        disk1_execute_x = normalized_execution_velocity[0]
-        disk1_execute_y = normalized_execution_velocity[1]
+        # execution_velocity = np.array([disk1_execute_x, disk1_execute_y])
+        # magnitude = np.linalg.norm(desired_object_vel)
+        # normalized_execution_velocity = execution_velocity / magnitude * 0.05
+        # disk1_execute_x = normalized_execution_velocity[0]
+        # disk1_execute_y = normalized_execution_velocity[1]
         # p.resetBaseVelocity(disk1Id, linearVelocity=[disk1_execute_x, disk1_execute_y, 0])
 
         p.resetBaseVelocity(disk1Id, linearVelocity=[disk1_execute_x, disk1_execute_y, 0])
