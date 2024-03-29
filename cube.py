@@ -65,7 +65,7 @@ p.changeDynamics(disk2Id, -1, lateralFriction=0, restitution=1)
 counter = 0
 no_contact_counter = 0
 
-bufferSize = 50
+bufferSize = 0
 no_contact_tolerance = 50
 
 preContact = False
@@ -74,7 +74,7 @@ preControl = 0
 prev_pos_diff = (0, 0)
 prev_robot_control = (0, 0)
 candidate_count = 20
-push_timestep = 10
+push_timestep = 100
 dataset = []
 
 timestep_counter = 0  # Initialize a counter to track the number of timesteps since the last position change
@@ -97,7 +97,7 @@ while (len(dataset) < bufferSize):
     p.resetBasePositionAndOrientation(disk1Id, (robot_pos_x, robot_pos_y, disk_height/2), (1, 0, 0, 0))
     # p.resetBaseVelocity(disk1Id, linearVelocity=[-math.cos(angle), -math.sin(angle), 0])
     # control_angle = random.uniform(-math.pi, math.pi)
-    control_angle = random.uniform(0, 2 * math.pi)
+    control_angle = random.uniform(-math.pi, math.pi)
     # random_x_vel = random.uniform(-1, 1)
     # random_y_vel = random.uniform(-1, 1)
 
@@ -118,8 +118,9 @@ while (len(dataset) < bufferSize):
     # object_vel_angle = math.atan2(end_pos[1] - object_pos[1], end_pos[0] - object_pos[0])
     # dataset.append((object_vel_angle, pos_angle, control_angle))
     # print(len(dataset))
-data = np.array(dataset)
-
+# data = np.array(dataset)
+data = np.load("concatenated_cube_data.npy")
+np.save("cube_push_1000.npy", data)
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
@@ -138,84 +139,120 @@ ax.set_zlabel('Control Angle')
 
 plt.show()
 
-eps = 2
-min_samples = 10
-dbscan = DBSCAN(eps=eps, min_samples=min_samples).fit(data)
-clusters = dbscan.labels_
-
-filtered_data = data[clusters != -1]
-filtered_clusters = clusters[clusters != -1]
-
 centroids = []
 
 # Visualize the clusters
-fig = plt.figure(figsize=(10, 8))
-ax = fig.add_subplot(111, projection='3d')
+# fig = plt.figure(figsize=(10, 8))
+# ax = fig.add_subplot(111, projection='3d')
 
-colors = ['r', 'g', 'b', 'y', 'c', 'm', 'o']
-unique_clusters = set(filtered_clusters)
+# colors = ['r', 'g', 'b', 'y', 'c', 'm', 'o']
+# # unique_clusters = set(filtered_clusters)
 
 # for i in range(k):
 #     ax.scatter(data[clusters == i, 0], data[clusters == i, 1], data[clusters == i, 2], c=colors[i], label=f'Cluster {i+1}')
-for cluster in unique_clusters:
-    ax.scatter(filtered_data[filtered_clusters == cluster, 0], filtered_data[filtered_clusters == cluster, 1], filtered_data[filtered_clusters == cluster, 2], label=f'Cluster {cluster}')
-# for label in unique_labels:
-#     ix = np.where(clusters == label)
-#     ax.scatter(data[ix, 0], data[ix, 1], data[ix, 2], c='k' if label == -1 else colors[label % len(colors)], label='Noise' if label == -1 else f'Cluster {label + 1}')
+# for cluster in unique_clusters:
+#     ax.scatter(filtered_data[filtered_clusters == cluster, 0], filtered_data[filtered_clusters == cluster, 1], filtered_data[filtered_clusters == cluster, 2], label=f'Cluster {cluster}')
+# # for label in unique_labels:
+# #     ix = np.where(clusters == label)
+# #     ax.scatter(data[ix, 0], data[ix, 1], data[ix, 2], c='k' if label == -1 else colors[label % len(colors)], label='Noise' if label == -1 else f'Cluster {label + 1}')
 
+# ax.set_xlabel('object_vel_angle')
+# ax.set_ylabel('pos_angle')
+# ax.set_zlabel('control_angle')
+# ax.legend()
+
+# plt.title('3D visualization of DBSCAN clustering')
+# plt.show()
+
+# # Linearize for each of the clusters
+# models = []
+# coefficients = []
+# intercepts = []
+
+# for cluster in unique_clusters:
+#     cluster_data = filtered_data[filtered_clusters == cluster]
+#     centroid = np.mean(cluster_data, axis=0)
+#     centroids.append(centroid)
+#     X = cluster_data[:, :-1]
+#     y = cluster_data[:, -1]
+
+#     model = LinearRegression().fit(X, y)
+#     # model = Ridge().fit(X, y)
+#     # model = ElasticNet.fit(X, y)
+#     score = model.score(X, y)
+#     print("Score", score)
+#     models.append(model)
+
+#     coefficients.append((model.coef_[0], model.coef_[1], model.intercept_))
+k = 4  # For example, let's say you want 4 clusters
+
+# Perform K-means clustering
+kmeans = KMeans(n_clusters=k, random_state=0).fit(data)
+clusters = kmeans.labels_
+
+# Visualization of the clusters
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111, projection='3d')
+colors = ['r', 'g', 'b', 'y', 'c', 'm']
+for cluster in range(k):
+    # Select data points that belong to the current cluster
+    cluster_data = data[clusters == cluster]
+    ax.scatter(cluster_data[:, 0], cluster_data[:, 1], cluster_data[:, 2], c=colors[cluster % len(colors)], label=f'Cluster {cluster}')
 ax.set_xlabel('object_vel_angle')
 ax.set_ylabel('pos_angle')
 ax.set_zlabel('control_angle')
 ax.legend()
-
-plt.title('3D visualization of DBSCAN clustering')
+plt.title('3D visualization of K-means clustering')
 plt.show()
 
-# Linearize for each of the clusters
+# Proceed with your linearization for each cluster as before
+centroids = kmeans.cluster_centers_
 models = []
 coefficients = []
-intercepts = []
-
-for cluster in unique_clusters:
-    cluster_data = filtered_data[filtered_clusters == cluster]
-    centroid = np.mean(cluster_data, axis=0)
-    centroids.append(centroid)
+for cluster in range(k):
+    cluster_data = data[clusters == cluster]
     X = cluster_data[:, :-1]
     y = cluster_data[:, -1]
 
     model = LinearRegression().fit(X, y)
-    # model = Ridge().fit(X, y)
-    # model = ElasticNet.fit(X, y)
     score = model.score(X, y)
-    print("Score", score)
+    print("Cluster", cluster, "Score", score)
     models.append(model)
 
     coefficients.append((model.coef_[0], model.coef_[1], model.intercept_))
-
-print(len(models))
+# print(len(models))
+print(coefficients)
 fig = plt.figure(figsize=(12, 9))
 ax = fig.add_subplot(111, projection='3d')
 colors = ['r', 'g', 'b', 'y', 'c']
 
-for cluster in unique_clusters:
-    cluster_data = filtered_data[filtered_clusters == cluster]
+fig = plt.figure(figsize=(12, 9))
+ax = fig.add_subplot(111, projection='3d')
+colors = ['r', 'g', 'b', 'y', 'c', 'm']
+
+# Scatter plot for each cluster
+for cluster in range(k):
+    cluster_data = data[clusters == cluster]
     ax.scatter(cluster_data[:, 0], cluster_data[:, 1], cluster_data[:, 2], c=colors[cluster % len(colors)], label=f'Cluster {cluster}')
 
-
-
-    # Plane equation: z = a*x + b*y + c
+# Plotting the planes
+for cluster, (a, b, c) in enumerate(coefficients):
+    # Generate grid over data range
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
-    X, Y = np.meshgrid(np.linspace(xlim[0], xlim[1], 10), np.linspace(ylim[0], ylim[1], 10))
-    coef = coefficients[cluster]
-    Z = coef[0] * X + coef[1] * Y + coef[2]
+    X, Y = np.meshgrid(np.linspace(xlim[0], xlim[1], 50), np.linspace(ylim[0], ylim[1], 50))
+    
+    # Calculate corresponding Z values
+    Z = a * X + b * Y + c
+
+    # Plot the surface
     ax.plot_surface(X, Y, Z, alpha=0.3, color=colors[cluster % len(colors)])
-ax.set_zlim(-4, 4)
+
 ax.set_xlabel('object_vel_angle')
 ax.set_ylabel('pos_angle')
 ax.set_zlabel('control_angle')
 ax.legend()
-plt.title('3D Visualization of K-means Clustering with Linearized Planes (k=4)')
+plt.title('3D Visualization of Clustering with Linearized Planes')
 plt.show()
 
 p.resetBasePositionAndOrientation(disk1Id, (0.5, 0, disk_height/2), (1, 0, 0, 0))
