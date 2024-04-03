@@ -33,7 +33,7 @@ planeId = p.loadURDF("plane.urdf")
 table_height = 0.625
 
 # Dimensions for the disks
-disk_mass = 10
+disk_mass = 1
 disk_radius = 0.1
 disk_height = 0.02
 
@@ -49,8 +49,8 @@ p.createMultiBody(baseMass=0, baseVisualShapeIndex=visGoalID, basePosition=[goal
 
 # Position the disks on the table
 # Adjust z-coordinate to be table_height plus half of disk height
-disk1Id = p.createMultiBody(baseMass=disk_mass, baseCollisionShapeIndex=disk1, basePosition=[0.5, 0, disk_height/2])
-disk2Id = p.createMultiBody(baseMass=disk_mass, baseCollisionShapeIndex=disk2, basePosition=[0.3, 0, disk_height/2])
+disk1Id = p.createMultiBody(baseMass=100, baseCollisionShapeIndex=disk1, basePosition=[0.5, 0, disk_height/2])
+disk2Id = p.createMultiBody(baseMass=1, baseCollisionShapeIndex=disk2, basePosition=[0.3, 0, disk_height/2])
 p.changeDynamics(disk1Id, -1, lateralFriction=0, restitution=1)
 p.changeDynamics(disk2Id, -1, lateralFriction=0, restitution=1)
 
@@ -70,7 +70,7 @@ preControl = 0
 prev_pos_diff = (0, 0)
 prev_robot_control = (0, 0)
 candidate_count = 20
-push_timestep = 100
+push_timestep = 20
 estimation_threshold = 1000
 dataset = []
 
@@ -113,7 +113,7 @@ while (len(dataset) < bufferSize):
         # if (object_vel_angle < 0):
         #     object_vel_angle -= 2 * math.pi
         #     control_angle -= 2 * math.pi
-        dataset.append((object_vel_angle, pos_angle, control_angle))
+        dataset.append((pos_angle, control_angle, object_vel_angle))
         print(len(dataset))
     # object_vel_angle = math.atan2(end_pos[1] - object_pos[1], end_pos[0] - object_pos[0])
     # dataset.append((object_vel_angle, pos_angle, control_angle))
@@ -134,9 +134,9 @@ fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
 # Split the data into separate variables for clarity
-object_vel_angles = data[:, 0]
-pos_angles = data[:, 1]
-control_angles = data[:, 2]
+object_vel_angles = data[:, 2]
+pos_angles = data[:, 0]
+control_angles = data[:, 1]
 
 # Scatter plot
 ax.scatter(object_vel_angles, pos_angles, control_angles)
@@ -206,7 +206,7 @@ centroids = []
 #     models.append(model)
 
 #     coefficients.append((model.coef_[0], model.coef_[1], model.intercept_))
-k = 4
+k = 1
 
 # Perform K-means clustering
 kmeans = KMeans(n_clusters=k, random_state=0).fit(data)
@@ -309,97 +309,24 @@ while True:
     object_pos, _ = p.getBasePositionAndOrientation(disk2Id)
     robot_pos, _ = p.getBasePositionAndOrientation(disk1Id)
     pos_angle = math.atan2((robot_pos[1] - object_pos[1]), (robot_pos[0] - object_pos[0]))
+    if (pos_angle < 0):
+        pos_angle += math.pi * 2
 
     # desired_object_vel_angle = math.atan2(goal_y_pos - object_pos[1], goal_x_pos - object_pos[0])
     desired_object_vel_angle = math.atan2(goal_y_pos - object_pos[1], goal_x_pos - object_pos[0])
-    new_data_point = [desired_object_vel_angle, pos_angle]
+    best_control_difference = 9999
+    for i in range (100):
+        control_angle = random.uniform(-math.pi, math.pi)
+        new_data_point = [pos_angle, control_angle]
+        new_object_velocity = models[0].predict([new_data_point])[0]
+        if (abs(new_object_velocity - desired_object_vel_angle)) < best_control_difference:
+            best_object_angle = abs(new_object_velocity - desired_object_vel_angle)
+            best_control_angle = control_angle
 
-    best_distance = 99999999
-    selected_cluster = -1
-
-    print("desired_object_vel_angle", desired_object_vel_angle)
-    print("pos_angle", pos_angle)
-
-
-    for i in range(len(models)):
-        predicted_control_angle = models[i].predict([new_data_point])[0]
-        ax.scatter(desired_object_vel_angle, pos_angle, predicted_control_angle, c='black', marker='x', s=100, label='Other Point')
-        distance_to_centroid = (desired_object_vel_angle - centroids[i][0]) ** 2 + (pos_angle - centroids[i][1]) ** 2 + (predicted_control_angle - centroids[i][2]) ** 2
-        if (distance_to_centroid < best_distance):
-            best_distance = distance_to_centroid
-            selected_cluster = i
-            selected_control_angle = predicted_control_angle
-
-    # Enable position change when the current relative_pos is unable to produce a good control
-        # if (distance_to_centroid > estimation_threshold):
-        #     best_candidate_score = distance_to_centroid
-        #     for j in range (20):
-        #         sampled_pos = random.uniform(0, 2 * math.pi)
-        #         sampled_data_point = [desired_object_vel_angle, sampled_pos]
-        #         sampled_predicted_control_angle = models[i].predict([new_data_point])[0]
-        #         candidate_score = (desired_object_vel_angle - centroids[i][0]) ** 2 + (sampled_pos - centroids[i][1]) ** 2 + (sampled_pos - centroids[i][2]) ** 2
-        #         if (candidate_score < best_candidate_score):
-        #             best_candidate_score = candidate_score
-        #             selected_control_angle = sampled_predicted_control_angle
-        #             selected_pos_angle = sampled_pos
-        #     robot_pos_x = object_pos[0] + 0.2 * math.cos(selected_pos_angle)
-        #     robot_pos_y = object_pos[1] + 0.2 * math.sin(selected_pos_angle)
-        #     p.resetBasePositionAndOrientation(disk1Id, (robot_pos_x, robot_pos_y, disk_height/2), (1, 0, 0, 0))
-
-            
-    # for cluster in unique_clusters:
-    #     cluster_data = filtered_data[filtered_clusters == cluster]
-    #     ax.scatter(cluster_data[:, 0], cluster_data[:, 1], cluster_data[:, 2], c=colors[cluster % len(colors)], label=f'Cluster {cluster}')
-
-
-
-    #     # Plane equation: z = a*x + b*y + c
-    #     xlim = ax.get_xlim()
-    #     ylim = ax.get_ylim()
-    #     X, Y = np.meshgrid(np.linspace(xlim[0], xlim[1], 10), np.linspace(ylim[0], ylim[1], 10))
-    #     coef = coefficients[cluster]
-    #     Z = coef[0] * X + coef[1] * Y + coef[2]
-    #     ax.plot_surface(X, Y, Z, alpha=0.3, color=colors[cluster % len(colors)])
-    # ax.set_zlim(-4, 4)
-    # ax.set_xlabel('object_vel_angle')
-    # ax.set_ylabel('pos_angle')
-    # ax.set_zlabel('control_angle')
-    # ax.scatter(desired_object_vel_angle, pos_angle, selected_control_angle, c='red', marker='x', s=100, label='New Point')
-    # ax.legend()
-    # plt.title('3D Visualization of K-means Clustering with Linearized Planes (k=4)')
-
-    # plt.show()
-
-    print("Model selected", selected_cluster)
-    print("Distance to centroid", best_distance)
-
-
-    # cluster_label = kmeans.predict([new_data_point])[0]
-    # model = models[cluster_label]
-    # predicted_control_angle = model.predict([new_data_point])[0]
-    # # predicted_control_angle = (desired_object_vel_angle - model.intercept_ - model.coef_[0] * pos_angle) / model.coef_[1]
-    # control_x = math.cos(predicted_control_angle)
-    # control_y = math.sin(predicted_control_angle)
-    control_x = math.cos(selected_control_angle)
-    control_y = math.sin(selected_control_angle)
+    control_x = math.cos(best_control_angle)
+    control_y = math.sin(best_control_angle)
     for i in range (push_timestep):
         p.resetBaseVelocity(disk1Id, linearVelocity=[control_x, control_y, 0])
         p.resetBaseVelocity(disk2Id, linearVelocity=[0, 0, 0], angularVelocity=[0, 0, 0])
         p.stepSimulation()
         time.sleep(timeStep)
-
-# ****
-
-#     magnitude = np.linalg.norm(desired_object_vel)
-#     normalized_desired_object_vel = desired_object_vel / magnitude
-#     desired_object_vel = normalized_desired_object_vel * 0.5
-
-#     relative_pos = np.array(relative_pos)
-#     print(desired_object_vel)
-#     print(relative_pos)
-#     control_predicted = interpolator(desired_object_vel, relative_pos)
-#     print("predicted_control", control_predicted)
-#     print(control_predicted.shape)
-#     p.resetBaseVelocity(disk1Id, linearVelocity=[control_predicted[0], control_predicted[1], 0])
-#     p.stepSimulation()
-#     time.sleep(timeStep)

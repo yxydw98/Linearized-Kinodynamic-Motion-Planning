@@ -65,7 +65,7 @@ p.changeDynamics(disk2Id, -1, lateralFriction=0, restitution=1)
 counter = 0
 no_contact_counter = 0
 
-bufferSize = 0
+bufferSize = int(input("Training times: "))
 no_contact_tolerance = 50
 
 preContact = False
@@ -74,10 +74,11 @@ preControl = 0
 prev_pos_diff = (0, 0)
 prev_robot_control = (0, 0)
 candidate_count = 20
-push_timestep = 100
+push_timestep = 50
 dataset = []
 
 timestep_counter = 0  # Initialize a counter to track the number of timesteps since the last position change
+pos_angle = math.pi
 
 while (len(dataset) < bufferSize):
 
@@ -88,7 +89,7 @@ while (len(dataset) < bufferSize):
     # print(robot_actual_pos)
     # print("object_pos", object_pos)
     # pos_angle = random.uniform(-math.pi, math.pi)
-    pos_angle = random.uniform(0, 2 * math.pi)
+    # pos_angle = random.uniform(0, 2 * math.pi)
 
     robot_pos_x = object_pos[0] + 0.2 * math.cos(pos_angle)
     robot_pos_y = object_pos[1] + 0.2 * math.sin(pos_angle)

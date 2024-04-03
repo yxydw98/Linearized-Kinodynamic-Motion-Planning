@@ -33,8 +33,8 @@ keep_mask = ~delete_mask
 data = data[keep_mask]
 
 np.save("concatenated_cube_data.npy", data)
-X = data[:, :2]  # all rows, first two columns
-y = data[:, 2]   # all rows, third column
+X = data[:, -2:]  # all rows, first two columns
+y = data[:, 0]   # all rows, third column
 # new_column = data[:, 1] - data[:, 2]
 # new_column = new_column.reshape(-1, 1)
 # data_with_new_column = np.hstack((data, new_column))
@@ -64,7 +64,7 @@ mse_lin = mean_squared_error(y, y_pred_lin)
 r2_lin = r2_score(y, y_pred_lin)
 
 # Polynomial Features Transformation
-poly_features = PolynomialFeatures(degree=5)
+poly_features = PolynomialFeatures(degree=2)
 X_poly = poly_features.fit_transform(X)
 
 # Polynomial Regression
