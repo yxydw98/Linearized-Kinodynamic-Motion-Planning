@@ -61,7 +61,7 @@ p.changeDynamics(disk2Id, -1, lateralFriction=0, restitution=1)
 counter = 0
 no_contact_counter = 0
 
-bufferSize = 20
+bufferSize = 100
 no_contact_tolerance = 50
 
 preContact = False
@@ -242,6 +242,10 @@ for cluster in range(k):
     models.append(model)
 
     coefficients.append((model.coef_[0], model.coef_[1], model.intercept_))
+<<<<<<< HEAD
+=======
+
+>>>>>>> 8ece701567e2f68c9f37ba437ed1ecb514d50c8a
 # print(len(models))
 print(coefficients)
 fig = plt.figure(figsize=(12, 9))

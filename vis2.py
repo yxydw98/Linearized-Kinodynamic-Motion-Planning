@@ -7,7 +7,11 @@ from sklearn.metrics import mean_squared_error, r2_score
 import math
 
 # Load the dataset
+<<<<<<< HEAD
 data_path = 'cube_push_1000.npy'
+=======
+data_path = 'adjusted_data_cylinder_push_1000.npy'
+>>>>>>> 8ece701567e2f68c9f37ba437ed1ecb514d50c8a
 data = np.load(data_path)
 
 
@@ -32,6 +36,7 @@ delete_mask = (data[:, 1] > 5) & (data[:, 0] < -2)
 keep_mask = ~delete_mask
 data = data[keep_mask]
 
+<<<<<<< HEAD
 np.save("concatenated_cube_data.npy", data)
 X = data[:, -2:]  # all rows, first two columns
 y = data[:, 0]   # all rows, third column
@@ -40,12 +45,27 @@ y = data[:, 0]   # all rows, third column
 # data_with_new_column = np.hstack((data, new_column))
 
 
+=======
+np.save("concatenated_data.npy", data)
+
+new_column = data[:, 1] - data[:, 2]
+new_column = new_column.reshape(-1, 1)
+
+data = np.hstack((data, new_column))
+
+X = data[:, 1]  # all rows, first two columns
+y = data[:, 3]   # all rows, third column
+>>>>>>> 8ece701567e2f68c9f37ba437ed1ecb514d50c8a
 
 # Visualizing the dataset in 3D
 fig = plt.figure(figsize=(10, 8))
 ax = fig.add_subplot(111, projection='3d')
 
+<<<<<<< HEAD
 ax.scatter(X[:, 0], X[:, 1], y, c='b', marker='o')
+=======
+ax.scatter(X, y, c='b', marker='o')
+>>>>>>> 8ece701567e2f68c9f37ba437ed1ecb514d50c8a
 ax.set_xlabel('object_velocity_angle')
 ax.set_ylabel('pos_angle')
 ax.set_zlabel('control_angle')
@@ -64,7 +84,11 @@ mse_lin = mean_squared_error(y, y_pred_lin)
 r2_lin = r2_score(y, y_pred_lin)
 
 # Polynomial Features Transformation
+<<<<<<< HEAD
 poly_features = PolynomialFeatures(degree=2)
+=======
+poly_features = PolynomialFeatures(degree=5)
+>>>>>>> 8ece701567e2f68c9f37ba437ed1ecb514d50c8a
 X_poly = poly_features.fit_transform(X)
 
 # Polynomial Regression
@@ -102,6 +126,7 @@ ax1.set_ylabel('Feature 2')
 ax1.set_zlabel('Output')
 ax1.set_title('Linear Regression Fit')
 
+<<<<<<< HEAD
 # Polynomial Regression
 ax2 = fig.add_subplot(122, projection='3d')
 ax2.scatter(X[:, 0], X[:, 1], y, c='b', marker='o', label='Actual Data')
@@ -110,5 +135,15 @@ ax2.set_xlabel('Feature 1')
 ax2.set_ylabel('Feature 2')
 ax2.set_zlabel('Output')
 ax2.set_title('Polynomial Regression Fit')
+=======
+# # Polynomial Regression
+# ax2 = fig.add_subplot(122, projection='3d')
+# ax2.scatter(X[:, 0], X[:, 1], y, c='b', marker='o', label='Actual Data')
+# ax2.plot_surface(x_surf, y_surf, y_pred_surf_poly, color='g', alpha=0.3)
+# ax2.set_xlabel('Feature 1')
+# ax2.set_ylabel('Feature 2')
+# ax2.set_zlabel('Output')
+# ax2.set_title('Polynomial Regression Fit')
+>>>>>>> 8ece701567e2f68c9f37ba437ed1ecb514d50c8a
 
 plt.show()

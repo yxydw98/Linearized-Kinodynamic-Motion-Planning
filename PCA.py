@@ -12,16 +12,25 @@ dataset = np.load(data_path)
 object_vel_angles = dataset[:, 0]
 pos_angles = dataset[:, 1]
 control_angles = dataset[:, 2]
+<<<<<<< HEAD
 adjusted_control_angles = np.where(control_angles > np.pi, control_angles - 2 * np.pi, control_angles)
 dataset[:, 2] = adjusted_control_angles
 np.save('adjusted_data_cylinder_push_1000.npy', dataset)
+=======
+
+
+>>>>>>> 8ece701567e2f68c9f37ba437ed1ecb514d50c8a
 sin_object_vel_angles = np.sin(object_vel_angles)
 sin_pos_angles = np.sin(pos_angles)
 sin_control_angles = np.sin(control_angles)
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
+<<<<<<< HEAD
 ax.scatter(object_vel_angles, pos_angles, adjusted_control_angles)
+=======
+ax.scatter(object_vel_angles, pos_angles, control_angles)
+>>>>>>> 8ece701567e2f68c9f37ba437ed1ecb514d50c8a
 
 # ax.plot(object_vel_angles, pos_angles, sin_control_angles, label='Sine of Control Angles', color='r')
 # ax.plot(object_vel_angles, sin_pos_angles, control_angles, label='Sine of Position Angles', color='g')

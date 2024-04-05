@@ -85,9 +85,10 @@ while (len(dataset) < bufferSize):
     print("orientation format", object_)
     robot_actual_pos, _ = p.getBasePositionAndOrientation(disk1Id)
 
-    pos_angle = random.uniform(-math.pi, math.pi)
+    # pos_angle = random.uniform(-math.pi, math.pi)
+    pos_angle = random.uniform(0, 2 * math.pi)
     oppo_pos_angle = pos_angle + math.pi
-    oppo_pos_angle = oppo_pos_angle - 2 * math.pi if oppo_pos_angle > math.pi else oppo_pos_angle
+    oppo_pos_angle = normalize_angle(oppo_pos_angle)
     print("pos_angle: ", pos_angle, "oppo_pos_angle", oppo_pos_angle)
 
     robot_pos_x = object_pos[0] + 0.2 * math.cos(pos_angle)
@@ -119,6 +120,9 @@ while (len(dataset) < bufferSize):
         control_angle = normalize_angle(control_angle)
 
         dataset.append((control_angle, object_vel_angle))
+        # dataset.append((pos_angle, object_vel_angle))
+        # dataset.append((pos_angle, control_angle, object_vel_angle))
+        # dataset.append((control_angle, displacement))
         print(len(dataset))
 
 data = np.array(dataset)
