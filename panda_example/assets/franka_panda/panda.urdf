@@ -252,7 +252,7 @@
       <material name="panda_white"/>
     </collision>
   </link>
-  <link name="panda_leftfinger">
+  <!-- <link name="panda_leftfinger">
        <contact>
       <friction_anchor/>
       <stiffness value="30000.0"/>
@@ -321,9 +321,9 @@
     <axis xyz="0 -1 0"/>
     <limit effort="20" lower="0.0" upper="0.04" velocity="0.2"/>
     <mimic joint="panda_finger_joint1"/>
-  </joint>
+  </joint> -->
 
-<!-- <link name="panda_centerfinger">
+<link name="panda_centerfinger">
     <contact>
         <friction_anchor/>
         <stiffness value="30000.0"/>
@@ -357,9 +357,9 @@
     <origin rpy="0 0 0" xyz="0 0 0.0584"/>
     <axis xyz="0 0 1"/>
     <limit effort="20" lower="0.0" upper="0.04" velocity="0.2"/>
-</joint> -->
+</joint>
 
-<link name="panda_grasptarget">
+<!-- <link name="panda_grasptarget">
  <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
        <mass value="0.0"/>
@@ -370,6 +370,6 @@
     <parent link="panda_hand"/>
     <child link="panda_grasptarget"/>
     <origin rpy="0 0 0" xyz="0 0 0.105"/>
-  </joint>
+  </joint> -->
   
 </robot>

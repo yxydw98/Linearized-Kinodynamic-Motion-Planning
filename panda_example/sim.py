@@ -6,9 +6,9 @@ import time
 # Parameters, PLEASE DO NOT CHANGE
 useNullSpace = 1
 ikSolver = 0
-pandaEndEffectorIndex = 11
-pandaFingerJoint1Index = 9
-pandaFingerJoint2Index = 10
+pandaEndEffectorIndex = 9
+# pandaFingerJoint1Index = 9
+# pandaFingerJoint2Index = 10
 pandaNumDofs = 7
 
 pandaJointRange = np.array([[-2.8973, 2.8973],
@@ -51,8 +51,8 @@ class PandaSim(object):
     # setup the Panda robot arm
     self.panda = self.bullet_client.loadURDF("assets/franka_panda/panda.urdf", [-0.4, -0.2, 0.0], [0, 0, 0, 1], useFixedBase=True, flags=flags)
     self.pandaNumJoints = self.bullet_client.getNumJoints(self.panda)
-    self.bullet_client.resetJointState(self.panda, pandaFingerJoint1Index, 0.04)
-    self.bullet_client.resetJointState(self.panda, pandaFingerJoint2Index, 0.04)
+    # self.bullet_client.resetJointState(self.panda, pandaFingerJoint1Index, 0.04)
+    # self.bullet_client.resetJointState(self.panda, pandaFingerJoint2Index, 0.04)
     for j in range(pandaNumDofs):
       self.bullet_client.changeDynamics(self.panda, j, linearDamping=0, angularDamping=0,
                                         jointLowerLimit=pandaJointRange[j, 0], jointUpperLimit=pandaJointRange[j, 1])
@@ -60,7 +60,7 @@ class PandaSim(object):
 
     self.objects = []
     self.num_objects = 0
-
+    self.cylinder = None
     self.obstacles = []
     self.num_obstacles = 0
     
@@ -81,9 +81,9 @@ class PandaSim(object):
     return box
   
   def add_cylinder(self, radius, rgbaColor, pos):
-    colCylID = self.bullet_client.createCollisionShape(self.bullet_client.GEOM_CYLINDER, radius=radius, height=0.05)
-    cylinder = self.bullet_client.createMultiBody(baseMass=1, baseCollisionShapeIndex=colCylID, basePosition=[pos[0], pos[1], 0.025])
-    self.bullet_client.changeDynamics(cylinder, -1, lateralFriction=0.1, restitution=1)
+    colCylID = self.bullet_client.createCollisionShape(self.bullet_client.GEOM_CYLINDER, radius=radius, height=0.025)
+    self.cylinder = self.bullet_client.createMultiBody(baseMass=100, baseCollisionShapeIndex=colCylID, basePosition=[pos[0], pos[1], 0.0125])
+    self.bullet_client.changeDynamics(self.cylinder, -1, lateralFriction=1, restitution=1)
   
   def add_object(self, halfExtents, rgbaColor, pos):
     """
@@ -171,9 +171,10 @@ class PandaSim(object):
     """
     Step the simulation.
     """
-    for box in self.objects:
-      self.bullet_client.applyExternalForce(box, -1, [0, 0, -0.98], [0, 0, 0], self.bullet_client.LINK_FRAME)
+    # for box in self.objects:
+    #   self.bullet_client.applyExternalForce(box, -1, [0, 0, -0.98], [0, 0, 0], self.bullet_client.LINK_FRAME)
     self.bullet_client.stepSimulation()
+    self.bullet_client.resetBaseVelocity(self.cylinder, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
 
   def execute(self, ctrl, sleep_time=0.0):
     """
@@ -275,7 +276,7 @@ class PandaSim(object):
              quat: The orientation of the end-effector, represented by quaternion.
                    Type: numpy.ndarray of shape (4,)
     """
-    ee_state = self.bullet_client.getLinkState(self.panda, linkIndex=11)
+    ee_state = self.bullet_client.getLinkState(self.panda, linkIndex=9)
     pos, quat = ee_state[4], ee_state[5]
     return np.array(pos), np.array(quat)
 

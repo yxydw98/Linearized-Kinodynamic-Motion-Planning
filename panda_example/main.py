@@ -51,7 +51,7 @@ if __name__ == "__main__":
   if args.task == 0:
     utils.setup_cylinder_push(panda_sim)
     pdef = setup_pdef(panda_sim)
-    ctrls = [[0.02, 0, 0, 10],
+    ctrls = [[0.02, 0, 0, 12],
              [0, 0.02, 0, 10],
              [-0.02, 0, 0, 10],
              [0, -0.02, 0, 10]]
