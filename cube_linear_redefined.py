@@ -240,7 +240,7 @@ while True:
     desired_object_vel_angle = normalize_angle(desired_object_vel_angle)
 
     # x_range = np.linspace(-np.pi/2, np.pi/2, 1000)
-    x_range = np.linspace(-1, 1, 1000)
+    x_range = np.linspace(-1, 1, 100)
     y_pred = best_model.predict(x_range.reshape(-1, 1))
 
     differences = np.abs(y_pred - desired_object_vel_angle)

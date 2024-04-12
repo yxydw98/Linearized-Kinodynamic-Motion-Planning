@@ -98,7 +98,7 @@ class PandaSim(object):
                                              baseCollisionShapeIndex=colBoxID,
                                              baseVisualShapeIndex=visBoxID,
                                              basePosition=[pos[0], pos[1], 0.02])
-    self.bullet_client.changeDynamics(self.cube, -1, lateralFriction=0.1)
+    self.bullet_client.changeDynamics(self.cube, -1, lateralFriction=0, restitution=1)
 
     
   def add_object(self, halfExtents, rgbaColor, pos):
@@ -190,16 +190,13 @@ class PandaSim(object):
     # for box in self.objects:
     #   self.bullet_client.applyExternalForce(box, -1, [0, 0, -0.98], [0, 0, 0], self.bullet_client.LINK_FRAME)
     self.bullet_client.stepSimulation()
-    self.bullet_client.resetBaseVelocity(self.cylinder, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
+    if (self.cylinder is not None):
+      self.bullet_client.resetBaseVelocity(self.cylinder, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
+
+    if (self.cube is not None):
+      self.bullet_client.resetBaseVelocity(self.cube, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
+
   
-  def step_cube(self):
-    """
-    Step the simulation.
-    """
-    # for box in self.objects:
-    #   self.bullet_client.applyExternalForce(box, -1, [0, 0, -0.98], [0, 0, 0], self.bullet_client.LINK_FRAME)
-    self.bullet_client.stepSimulation()
-    self.bullet_client.resetBaseVelocity(self.cube, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
   def execute(self, ctrl, sleep_time=0.0):
     """
     Control the robot by Jacobian-based projection.
@@ -305,10 +302,18 @@ class PandaSim(object):
     pos, quat = ee_state[4], ee_state[5]
     return np.array(pos), np.array(quat)
   
-  def get_cylinder_pos(self):
-    object_pos, _  = self.bullet_client.getBasePositionAndOrientation(self.cylinder)
+  def get_object_pos(self):
+    if (self.cylinder is not None):
+      object_pos, _ = self.bullet_client.getBasePositionAndOrientation(self.cylinder)
+    if (self.cube is not None):
+      object_pos, _ = self.bullet_client.getBasePositionAndOrientation(self.cube)
     return object_pos
   
+  def get_object_ori(self):
+    if (self.cube is not None):
+      _, object_quat = self.bullet_client.getBasePositionAndOrientation(self.cube)
+      object_ori = self.bullet_client.getEulerFromQuaternion(object_quat)[2]
+    return object_ori
   def get_jacobian_matrix_online(self):
     mjpos, _, _ = self.get_motor_joint_states()
     Jt, Jr = self.bullet_client.calculateJacobian(self.panda, pandaEndEffectorIndex, 
@@ -320,10 +325,15 @@ class PandaSim(object):
     J = np.vstack((Jt, Jr))
     return J
 
-  def in_collision_with_cylinder(self):
-    if len(self.bullet_client.getContactPoints(self.panda, self.cylinder)) > 0:
-      return True
-    return False
+  def in_collision_with_object(self):
+    if (self.cylinder is not None):
+      if len(self.bullet_client.getContactPoints(self.panda, self.cylinder)) > 0:
+        return True
+      return False
+    if (self.cube is not None):
+      if len(self.bullet_client.getContactPoints(self.panda, self.cube)) > 0:
+        return True      
+      return False
   
   def is_collision(self, state):
     """
