@@ -3,7 +3,10 @@ import pybullet as p
 import pybullet_data as pd
 import pybullet_utils.bullet_client as bc
 import sim
+import math
 
+def normalize_angle(theta):
+    return (theta + math.pi) % (2 * math.pi) - math.pi
 
 def setup_bullet_client(connection_mode):
   bullet_client = bc.BulletClient(connection_mode=connection_mode)
@@ -28,6 +31,9 @@ def setup_env(panda_sim):
 
 def setup_cylinder_push(panda_sim):
   panda_sim.add_cylinder(0.02, [1.0, 1.0, 0.0, 1.0], [0.03, 0.075])
+
+def setup_cube_push(panda_sim):
+  panda_sim.add_cube([0.02, 0.02, 0.02], [1.0, 1.0, 0.0, 1.0], [0, 0])
 
 def execute_plan(panda_sim, plan, sleep_time=0.005):
   for node in plan:
@@ -66,3 +72,6 @@ def extract_reference_waypoints(panda_sim, ctrl):
 
 def draw_line(panda_sim, p_from, p_to, c, w):
     return panda_sim.bullet_client.addUserDebugLine(p_from, p_to, lineColorRGB=c, lineWidth=w)
+
+def distance(p1, p2):
+    return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)

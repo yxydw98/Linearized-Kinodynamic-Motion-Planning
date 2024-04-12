@@ -44,9 +44,11 @@ class PandaSim(object):
                                                    rgbaColor=[0.0, 1.0, 0.0, 1.0])
     self.bullet_client.createMultiBody(baseMass=0, baseVisualShapeIndex=visWsID)
     visGoalID = self.bullet_client.createVisualShape(self.bullet_client.GEOM_CYLINDER,
-                                                     radius=0.1, length=1e-3,
+                                                     radius=0.02, length=1e-3,
                                                      rgbaColor=[1.0, 0.0, 0.0, 1.0])
-    self.bullet_client.createMultiBody(baseMass=0, baseVisualShapeIndex=visGoalID, basePosition=[0.2, -0.2, 0])
+    self.cylinder_push_goal = [0, -0.15]
+    self.bullet_client.createMultiBody(baseMass=0, baseVisualShapeIndex=visGoalID, basePosition=[self.cylinder_push_goal[0], self.cylinder_push_goal[1], 0])
+    # self.bullet_client.resetDebugVisualizerCamera(cameraDistance=0.1, cameraYaw=90, cameraPitch=-80, cameraTargetPosition=[0, 0, 0.75])
 
     # setup the Panda robot arm
     self.panda = self.bullet_client.loadURDF("assets/franka_panda/panda.urdf", [-0.4, -0.2, 0.0], [0, 0, 0, 1], useFixedBase=True, flags=flags)
@@ -61,9 +63,10 @@ class PandaSim(object):
     self.objects = []
     self.num_objects = 0
     self.cylinder = None
+    self.cube = None
     self.obstacles = []
     self.num_obstacles = 0
-    
+
     self.jac_solver = jac.JacSolver() # The jacobian solver for the robot
     self.pdef = None # task-specific ProblemDefinition
 
@@ -82,9 +85,22 @@ class PandaSim(object):
   
   def add_cylinder(self, radius, rgbaColor, pos):
     colCylID = self.bullet_client.createCollisionShape(self.bullet_client.GEOM_CYLINDER, radius=radius, height=0.025)
-    self.cylinder = self.bullet_client.createMultiBody(baseMass=100, baseCollisionShapeIndex=colCylID, basePosition=[pos[0], pos[1], 0.0125])
-    self.bullet_client.changeDynamics(self.cylinder, -1, lateralFriction=1, restitution=1)
+    self.cylinder = self.bullet_client.createMultiBody(baseMass=1, baseCollisionShapeIndex=colCylID, basePosition=[pos[0], pos[1], 0.0125])
+    self.bullet_client.changeDynamics(self.cylinder, -1, lateralFriction=0, restitution=1)
   
+  def add_cube(self, halfExtents, rgbaColor, pos):
+    colBoxID = self.bullet_client.createCollisionShape(self.bullet_client.GEOM_BOX,
+                                                       halfExtents=halfExtents)
+    visBoxID = self.bullet_client.createVisualShape(self.bullet_client.GEOM_BOX,
+                                                    halfExtents=halfExtents,
+                                                    rgbaColor=rgbaColor)
+    self.cube = self.bullet_client.createMultiBody(baseMass=0.1,
+                                             baseCollisionShapeIndex=colBoxID,
+                                             baseVisualShapeIndex=visBoxID,
+                                             basePosition=[pos[0], pos[1], 0.02])
+    self.bullet_client.changeDynamics(self.cube, -1, lateralFriction=0.1)
+
+    
   def add_object(self, halfExtents, rgbaColor, pos):
     """
     Add one movable box object in the simulation.
@@ -175,7 +191,15 @@ class PandaSim(object):
     #   self.bullet_client.applyExternalForce(box, -1, [0, 0, -0.98], [0, 0, 0], self.bullet_client.LINK_FRAME)
     self.bullet_client.stepSimulation()
     self.bullet_client.resetBaseVelocity(self.cylinder, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
-
+  
+  def step_cube(self):
+    """
+    Step the simulation.
+    """
+    # for box in self.objects:
+    #   self.bullet_client.applyExternalForce(box, -1, [0, 0, -0.98], [0, 0, 0], self.bullet_client.LINK_FRAME)
+    self.bullet_client.stepSimulation()
+    self.bullet_client.resetBaseVelocity(self.cube, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
   def execute(self, ctrl, sleep_time=0.0):
     """
     Control the robot by Jacobian-based projection.
@@ -207,7 +231,8 @@ class PandaSim(object):
       stateVec = jpos[0:pandaNumDofs]
 
       #joint velocities = pseudo inverse of J * desired twist
-      J = self.get_jacobian_matrix(stateVec)
+      # J = self.get_jacobian_matrix(stateVec)
+      J = self.get_jacobian_matrix_online()
       J_pseudo_inv = np.linalg.pinv(J)
       vq = np.dot(J_pseudo_inv, vx)
       ##########################
@@ -279,7 +304,11 @@ class PandaSim(object):
     ee_state = self.bullet_client.getLinkState(self.panda, linkIndex=9)
     pos, quat = ee_state[4], ee_state[5]
     return np.array(pos), np.array(quat)
-
+  
+  def get_cylinder_pos(self):
+    object_pos, _  = self.bullet_client.getBasePositionAndOrientation(self.cylinder)
+    return object_pos
+  
   def get_jacobian_matrix_online(self):
     mjpos, _, _ = self.get_motor_joint_states()
     Jt, Jr = self.bullet_client.calculateJacobian(self.panda, pandaEndEffectorIndex, 
@@ -291,6 +320,11 @@ class PandaSim(object):
     J = np.vstack((Jt, Jr))
     return J
 
+  def in_collision_with_cylinder(self):
+    if len(self.bullet_client.getContactPoints(self.panda, self.cylinder)) > 0:
+      return True
+    return False
+  
   def is_collision(self, state):
     """
     Check if there is collision in the simulation when it is at "state".
@@ -309,3 +343,4 @@ class PandaSim(object):
         return True
     self.restore_state(state_curr)
     return False
+  
