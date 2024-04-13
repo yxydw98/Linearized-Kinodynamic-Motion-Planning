@@ -58,7 +58,7 @@ def setup_pdef(panda_sim):
 if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
-  parser.add_argument("--task", type=int, choices=[0, 1, 2, 3, 4, 5])
+  parser.add_argument("--task", type=int, choices=[0, 1, 2, 3, 4, 5, 6])
   args = parser.parse_args()
 
   # set up the simulation
@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
     # Generate a few random controls after getting contact to estimate the model
     dataset = []
-    for _ in range (20):
+    for _ in range (5):
       object_pos = panda_sim.get_object_pos()
       eef_pos, _ = panda_sim.get_ee_pose()
       pos_angle = get_pos_angle(eef_pos, object_pos)
@@ -144,7 +144,7 @@ if __name__ == "__main__":
       #Check if the goal state is achieved
       if (utils.distance(object_pos, panda_sim.cylinder_push_goal) < 0.002):
         print("Goal reached!!!")
-        panda_sim.execute([0, 0, 0, 100000])
+        time.sleep(10000)
       eef_pos, _ = panda_sim.get_ee_pose()
       pos_angle = math.atan2((eef_pos[1] - object_pos[1]), (eef_pos[0] - object_pos[0]))
       oppo_pos_angle = utils.normalize_angle(pos_angle + math.pi)
@@ -240,7 +240,7 @@ if __name__ == "__main__":
       #Check if the goal state is achieved
       if (utils.distance(object_pos, panda_sim.cylinder_push_goal) < 0.002):
         print("Goal reached!!!")
-        panda_sim.execute([0, 0, 0, 100000])
+        time.sleep(10000)
       eef_pos, _ = panda_sim.get_ee_pose()
       pos_angle = math.atan2((eef_pos[1] - object_pos[1]), (eef_pos[0] - object_pos[0]))
       oppo_pos_angle = utils.normalize_angle(pos_angle + math.pi)
@@ -263,8 +263,80 @@ if __name__ == "__main__":
       panda_sim.execute([control_x, control_y, 0, 0.2])
 
 
+  if args.task == 2:
+    utils.setup_triangle_push(panda_sim)
+    pdef = setup_pdef(panda_sim)
+    object_pos = panda_sim.get_object_pos()
+    eef_pos, _ = panda_sim.get_ee_pose()
 
+    # Get contact with the object
+    while (not panda_sim.in_collision_with_object()):
+      control = normalize_vector(eef_pos, object_pos) / 100
+      panda_sim.execute([control[0], control[1], 0 , 1])
+    print("Contact detected")
 
+    data = np.load("20_data.npy")
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.set_xlim([-math.pi, math.pi])
+    ax.set_ylim([-math.pi, math.pi])
+
+    object_vel_angles = data[:, 1]
+    control_angles = data[:, 0]
+
+    ax.scatter(control_angles, object_vel_angles)
+    ax.set_xlabel('Control Angle')
+    ax.set_ylabel('Object Velocity Angle')
+    
+    # plt.show()
+
+    x = data[:, 0]
+    y = data[:, 1]
+
+    linear_model = LinearRegression().fit(x.reshape(-1, 1), y)
+
+    # Score of the linear model
+    linear_score = r2_score(y, linear_model.predict(x.reshape(-1, 1)))
+    plt.figure(figsize=(10, 6))
+    plt.scatter(x, y, color='blue', label='Data Points')
+    plt.title('Linear Model Regression')
+    plt.xlabel('X')
+    plt.ylabel('Y')
+
+    x_fit = np.linspace(x.min(), x.max(), 400)
+    y_fit = linear_model.predict(x_fit.reshape(-1, 1))
+    plt.plot(x_fit, y_fit, color='red', label='Linear Fit')
+    plt.legend()
+    # plt.show()
+
+    while True:
+      object_pos = panda_sim.get_object_pos()
+      #Check if the goal state is achieved
+      if (utils.distance(object_pos, panda_sim.cylinder_push_goal) < 0.01):
+        print("Goal reached!!!")
+        time.sleep(10000)
+      else:
+        print("distance to goal", utils.distance(object_pos, panda_sim.cylinder_push_goal))
+      eef_pos, _ = panda_sim.get_ee_pose()
+      pos_angle = math.atan2((eef_pos[1] - object_pos[1]), (eef_pos[0] - object_pos[0]))
+      oppo_pos_angle = utils.normalize_angle(pos_angle + math.pi)
+
+      desired_object_vel_angle = math.atan2(panda_sim.cylinder_push_goal[1] - object_pos[1], panda_sim.cylinder_push_goal[0] - object_pos[0])
+      desired_object_vel_angle = utils.normalize_angle(desired_object_vel_angle - oppo_pos_angle)
+
+      x_range = np.linspace(-1, 1, 400)
+      y_pred = linear_model.predict(x_range.reshape(-1, 1))
+
+      differences = np.abs(y_pred - desired_object_vel_angle)
+
+      min_diff_x = np.argmin(differences)
+      x_closest = x_range[min_diff_x]
+      print("x_closest = ", x_closest)
+      x_closest += oppo_pos_angle
+
+      control_x = math.cos(x_closest) / 200
+      control_y = math.sin(x_closest) / 200
+      panda_sim.execute([control_x, control_y, 0, 0.2])
 
   if args.task == 5:
     pdef = setup_pdef(panda_sim)
@@ -294,7 +366,7 @@ if __name__ == "__main__":
     pdef = setup_pdef(panda_sim)
 
     # Task 2: Kinodynamic RRT Planning for Relocating
-    if args.task == 2:
+    if args.task == 6:
       goal = RelocateGoal()
       pdef.set_goal(goal)
 

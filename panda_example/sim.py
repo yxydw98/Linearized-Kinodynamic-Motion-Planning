@@ -37,6 +37,8 @@ class PandaSim(object):
                          Type: pybullet_utils.bullet_client.BulletClient
     """
     self.bullet_client = bullet_client
+    self.bullet_client.setGravity(0, 0, -2)
+
     flags = self.bullet_client.URDF_ENABLE_CACHED_GRAPHICS_SHAPES
     self.plane = self.bullet_client.loadURDF("plane.urdf")
     visWsID = self.bullet_client.createVisualShape(self.bullet_client.GEOM_BOX,
@@ -62,8 +64,12 @@ class PandaSim(object):
 
     self.objects = []
     self.num_objects = 0
+
+    #Defined Objects
     self.cylinder = None
     self.cube = None
+    self.triangle = None
+
     self.obstacles = []
     self.num_obstacles = 0
 
@@ -86,7 +92,7 @@ class PandaSim(object):
   def add_cylinder(self, radius, rgbaColor, pos):
     colCylID = self.bullet_client.createCollisionShape(self.bullet_client.GEOM_CYLINDER, radius=radius, height=0.025)
     self.cylinder = self.bullet_client.createMultiBody(baseMass=1, baseCollisionShapeIndex=colCylID, basePosition=[pos[0], pos[1], 0.0125])
-    self.bullet_client.changeDynamics(self.cylinder, -1, lateralFriction=0, restitution=1)
+    self.bullet_client.changeDynamics(self.cylinder, -1, lateralFriction=0.0, restitution=1)
   
   def add_cube(self, halfExtents, rgbaColor, pos):
     colBoxID = self.bullet_client.createCollisionShape(self.bullet_client.GEOM_BOX,
@@ -100,6 +106,20 @@ class PandaSim(object):
                                              basePosition=[pos[0], pos[1], 0.02])
     self.bullet_client.changeDynamics(self.cube, -1, lateralFriction=0, restitution=1)
 
+  def add_triangle(self, rgbaColor, pos):
+    obj_file = "assets/triangle.obj"
+    # obj_file = "assets/hammer.obj"
+    # obj_file = "assets/banana.obj"
+    euler_angles = [0, 0, 0]
+    quaternion = self.bullet_client.getQuaternionFromEuler(euler_angles)
+    colTriID = self.bullet_client.createCollisionShape(shapeType=self.bullet_client.GEOM_MESH, fileName=obj_file)
+    visTriID = self.bullet_client.createVisualShape(shapeType = self.bullet_client.GEOM_MESH, fileName=obj_file, rgbaColor=rgbaColor)
+    self.triangle = self.bullet_client.createMultiBody(baseMass=1, 
+                                                       baseCollisionShapeIndex=colTriID,
+                                                       baseVisualShapeIndex=visTriID,
+                                                       basePosition=[pos[0], pos[1], 0.02],
+                                                       baseOrientation=quaternion)
+    self.bullet_client.changeDynamics(self.triangle, -1, lateralFriction=0.1, restitution=1)
     
   def add_object(self, halfExtents, rgbaColor, pos):
     """
@@ -195,7 +215,9 @@ class PandaSim(object):
 
     if (self.cube is not None):
       self.bullet_client.resetBaseVelocity(self.cube, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
-
+    
+    if (self.triangle is not None):
+      self.bullet_client.resetBaseVelocity(self.triangle, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
   
   def execute(self, ctrl, sleep_time=0.0):
     """
@@ -307,6 +329,8 @@ class PandaSim(object):
       object_pos, _ = self.bullet_client.getBasePositionAndOrientation(self.cylinder)
     if (self.cube is not None):
       object_pos, _ = self.bullet_client.getBasePositionAndOrientation(self.cube)
+    if (self.triangle is not None):
+      object_pos, _ = self.bullet_client.getBasePositionAndOrientation(self.triangle)
     return object_pos
   
   def get_object_ori(self):
@@ -314,6 +338,7 @@ class PandaSim(object):
       _, object_quat = self.bullet_client.getBasePositionAndOrientation(self.cube)
       object_ori = self.bullet_client.getEulerFromQuaternion(object_quat)[2]
     return object_ori
+  
   def get_jacobian_matrix_online(self):
     mjpos, _, _ = self.get_motor_joint_states()
     Jt, Jr = self.bullet_client.calculateJacobian(self.panda, pandaEndEffectorIndex, 
@@ -334,6 +359,10 @@ class PandaSim(object):
       if len(self.bullet_client.getContactPoints(self.panda, self.cube)) > 0:
         return True      
       return False
+    if (self.triangle is not None):
+      if len(self.bullet_client.getContactPoints(self.panda, self.triangle)) > 0:
+        return True      
+      return False     
   
   def is_collision(self, state):
     """
