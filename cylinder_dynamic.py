@@ -52,10 +52,10 @@ p.createMultiBody(baseMass=0, baseVisualShapeIndex=visGoalID, basePosition=[goal
 
 # Position the disks on the table
 # Adjust z-coordinate to be table_height plus half of disk height
-disk1Id = p.createMultiBody(baseMass=100, baseCollisionShapeIndex=disk1, basePosition=[0.5, 0, disk_height/2])
-disk2Id = p.createMultiBody(baseMass=1, baseCollisionShapeIndex=disk2, basePosition=[0.3, 0, disk_height/2])
+disk1Id = p.createMultiBody(baseMass=10, baseCollisionShapeIndex=disk1, basePosition=[0.5, 0, disk_height/2])
+disk2Id = p.createMultiBody(baseMass=10, baseCollisionShapeIndex=disk2, basePosition=[0.3, 0, disk_height/2])
 p.changeDynamics(disk1Id, -1, lateralFriction=0, restitution=1)
-p.changeDynamics(disk2Id, -1, lateralFriction=0, restitution=1)
+p.changeDynamics(disk2Id, -1, lateralFriction=0.8, restitution=1)
 
 # Run the simulation
 
@@ -71,7 +71,8 @@ preControl = 0
 prev_pos_diff = (0, 0)
 prev_robot_control = (0, 0)
 candidate_count = 20
-push_timestep = 10
+push_timestep = 50
+speed_scale = 4
 dataset = []
 
 timestep_counter = 0  # Initialize a counter to track the number of timesteps since the last position change
@@ -82,34 +83,41 @@ while (len(dataset) < bufferSize):
     # p.resetBaseVelocity(disk2Id, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
     object_pos, object_ = p.getBasePositionAndOrientation(disk2Id)
     object_ori = p.getEulerFromQuaternion(object_)[0]
-    print("orientation format", object_)
+    # print("orientation format", object_)
     robot_actual_pos, _ = p.getBasePositionAndOrientation(disk1Id)
 
     # pos_angle = random.uniform(-math.pi, math.pi)
     pos_angle = math.pi
     oppo_pos_angle = pos_angle + math.pi
     oppo_pos_angle = normalize_angle(oppo_pos_angle)
-    print("pos_angle: ", pos_angle, "oppo_pos_angle", oppo_pos_angle)
+    # print("pos_angle: ", pos_angle, "oppo_pos_angle", oppo_pos_angle)
 
     robot_pos_x = object_pos[0] + 0.2 * math.cos(pos_angle)
     robot_pos_y = object_pos[1] + 0.2 * math.sin(pos_angle)
 
     p.resetBasePositionAndOrientation(disk1Id, (robot_pos_x, robot_pos_y, disk_height/2), (1, 0, 0, 0))
-    control_angle = random.uniform(-math.pi, math.pi)
+    control_angle = random.uniform(-1.2, 1.2)
+    # control_angle = 0.5
 
-
-    control_x = math.cos(control_angle)
-    control_y = math.sin(control_angle)
+    control_x = math.cos(control_angle) * speed_scale
+    control_y = math.sin(control_angle) * speed_scale
 
     for i in range (push_timestep):
         p.resetBaseVelocity(disk1Id, linearVelocity=[control_x, control_y, 0])
         # p.resetBaseVelocity(disk2Id, linearVelocity=[0, 0, 0])
         p.stepSimulation()
         time.sleep(timeStep)
-
+    p.resetBaseVelocity(disk1Id, linearVelocity=[0, 0, 0])
+    current_object_velocity, _ = p.getBaseVelocity(disk2Id)
+    # print("current object velocity", current_object_velocity)
+    while (math.sqrt(current_object_velocity[0] ** 2 + current_object_velocity[1] ** 2 + current_object_velocity[2] ** 2) > 0.0001):
+        current_object_velocity, _ = p.getBaseVelocity(disk2Id)
+        p.stepSimulation()
+        time.sleep(timeStep)
+    print("current object velocity", current_object_velocity)
     end_pos, end_ = p.getBasePositionAndOrientation(disk2Id)
     end_ori = p.getEulerFromQuaternion(end_)[0]
-    print("End orientation", end_)
+    # print("End orientation", end_)
     displacement = math.sqrt((end_pos[0] - object_pos[0]) ** 2 + (end_pos[1] - object_pos[1]) ** 2)
     if (displacement > 0.001):
         object_vel_angle = math.atan2(end_pos[1] - object_pos[1], end_pos[0] - object_pos[0])
@@ -126,7 +134,7 @@ while (len(dataset) < bufferSize):
         print(len(dataset))
 
 data = np.array(dataset)
-np.save("20_data.npy", data)
+# np.save("20_data.npy", data)
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
@@ -198,43 +206,43 @@ p.resetBasePositionAndOrientation(disk2Id, (0.3, 0.1, disk_height/2), (1, 0, 0, 
 
 counter = 0
 
-while True:
-    counter += 1
-    fig = plt.figure(figsize=(12, 9))
-    ax = fig.add_subplot(111, projection='3d')
-    colors = ['r', 'g', 'b', 'y', 'c']
+# while True:
+#     counter += 1
+#     fig = plt.figure(figsize=(12, 9))
+#     ax = fig.add_subplot(111, projection='3d')
+#     colors = ['r', 'g', 'b', 'y', 'c']
     
-    p.resetBaseVelocity(disk2Id, linearVelocity=[0, 0, 0])
-    object_pos, _ = p.getBasePositionAndOrientation(disk2Id)
-    robot_pos, _ = p.getBasePositionAndOrientation(disk1Id)
-    pos_angle = math.atan2((robot_pos[1] - object_pos[1]), (robot_pos[0] - object_pos[0]))
-    oppo_pos_angle = pos_angle + math.pi
-    oppo_pos_angle = oppo_pos_angle - 2 * math.pi if oppo_pos_angle > math.pi else oppo_pos_angle
-    print("pos_angle: ", pos_angle, "oppo_pos_angle", oppo_pos_angle)
+#     p.resetBaseVelocity(disk2Id, linearVelocity=[0, 0, 0])
+#     object_pos, _ = p.getBasePositionAndOrientation(disk2Id)
+#     robot_pos, _ = p.getBasePositionAndOrientation(disk1Id)
+#     pos_angle = math.atan2((robot_pos[1] - object_pos[1]), (robot_pos[0] - object_pos[0]))
+#     oppo_pos_angle = pos_angle + math.pi
+#     oppo_pos_angle = oppo_pos_angle - 2 * math.pi if oppo_pos_angle > math.pi else oppo_pos_angle
+#     print("pos_angle: ", pos_angle, "oppo_pos_angle", oppo_pos_angle)
 
-    desired_object_vel_angle = math.atan2(goal_y_pos - object_pos[1], goal_x_pos - object_pos[0])
-    desired_object_vel_angle -= oppo_pos_angle
-    desired_object_vel_angle = normalize_angle(desired_object_vel_angle)
+#     desired_object_vel_angle = math.atan2(goal_y_pos - object_pos[1], goal_x_pos - object_pos[0])
+#     desired_object_vel_angle -= oppo_pos_angle
+#     desired_object_vel_angle = normalize_angle(desired_object_vel_angle)
 
-    start_time = time.time()
+#     start_time = time.time()
 
-    x_range = np.linspace(-np.pi/2, np.pi/2, 1000)
-    y_pred = best_model.predict(x_range.reshape(-1, 1))
+#     x_range = np.linspace(-np.pi/2, np.pi/2, 1000)
+#     y_pred = best_model.predict(x_range.reshape(-1, 1))
 
-    differences = np.abs(y_pred - desired_object_vel_angle)
+#     differences = np.abs(y_pred - desired_object_vel_angle)
 
-    min_diff_x = np.argmin(differences)
-    x_closest = x_range[min_diff_x]
+#     min_diff_x = np.argmin(differences)
+#     x_closest = x_range[min_diff_x]
 
-    end_time = time.time()
-    time_used = end_time - start_time
-    print("time_used, ", time_used)
-    x_closest += oppo_pos_angle
+#     end_time = time.time()
+#     time_used = end_time - start_time
+#     print("time_used, ", time_used)
+#     x_closest += oppo_pos_angle
 
-    control_x = math.cos(x_closest)
-    control_y = math.sin(x_closest)
-    for i in range (push_timestep):
-        p.resetBaseVelocity(disk1Id, linearVelocity=[control_x, control_y, 0])
-        p.resetBaseVelocity(disk2Id, linearVelocity=[0, 0, 0], angularVelocity=[0, 0, 0])
-        p.stepSimulation()
-        time.sleep(timeStep)
+#     control_x = math.cos(x_closest)
+#     control_y = math.sin(x_closest)
+#     for i in range (push_timestep):
+#         p.resetBaseVelocity(disk1Id, linearVelocity=[control_x, control_y, 0])
+#         p.resetBaseVelocity(disk2Id, linearVelocity=[0, 0, 0], angularVelocity=[0, 0, 0])
+#         p.stepSimulation()
+#         time.sleep(timeStep)

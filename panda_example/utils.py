@@ -17,6 +17,7 @@ def setup_bullet_client(connection_mode):
   bullet_client.setPhysicsEngineParameter(deterministicOverlappingPairs=1) # determinism guaranteed, important
   return bullet_client
 
+
 def setup_env(panda_sim):
   # set up the environment
   panda_sim.add_object([0.02, 0.02, 0.02], [1.0, 1.0, 0.0, 1.0], [0, 0])
@@ -29,6 +30,9 @@ def setup_env(panda_sim):
   panda_sim.add_object([0.02, 0.02, 0.02], [0.0, 0.0, 1.0, 1.0], [0, 0.05])
   panda_sim.add_object([0.02, 0.02, 0.02], [0.0, 0.0, 1.0, 1.0], [0.05, 0.05])
 
+def setup_dynamic_cylinder_push(panda_sim):
+  panda_sim.add_dynamic_cylinder(0.02, [1.0, 1.0, 0.0, 1.0], [0.03, 0.075])
+  
 def setup_cylinder_push(panda_sim):
   panda_sim.add_cylinder(0.02, [1.0, 1.0, 0.0, 1.0], [0.03, 0.075])
 

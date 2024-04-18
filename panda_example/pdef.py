@@ -132,6 +132,7 @@ class ProblemDefinition(object):
         if manipulability < 0.01:
             # print("is not high quality", manipulability)
             return False
+        # print("manipulability", manipulability)
         return True
     
 

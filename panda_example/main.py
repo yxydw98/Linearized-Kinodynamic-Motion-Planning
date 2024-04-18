@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
     # Generate a few random controls after getting contact to estimate the model
     dataset = []
-    for _ in range (5):
+    for _ in range (20):
       object_pos = panda_sim.get_object_pos()
       eef_pos, _ = panda_sim.get_ee_pose()
       pos_angle = get_pos_angle(eef_pos, object_pos)
@@ -200,8 +200,8 @@ if __name__ == "__main__":
 
       print(len(dataset))
     
-    # data = np.array(dataset)
-    data = np.load("20_data.npy")
+    data = np.array(dataset)
+    # data = np.load("20_data.npy")
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.set_xlim([-math.pi, math.pi])
@@ -338,102 +338,118 @@ if __name__ == "__main__":
       control_y = math.sin(x_closest) / 200
       panda_sim.execute([control_x, control_y, 0, 0.2])
 
-  if args.task == 5:
+if args.task == 3:
+    utils.setup_dynamic_cylinder_push(panda_sim) #cylinder radius = 0.02
     pdef = setup_pdef(panda_sim)
+    object_pos = panda_sim.get_object_pos()
+    eef_pos, _ = panda_sim.get_ee_pose()
+    dataset = []
+    for _ in range (10):
+    # Get contact with the object
+      while (not panda_sim.in_collision_with_object()):
+        object_pos = panda_sim.get_object_pos()
+        eef_pos, _ = panda_sim.get_ee_pose()
+        control = normalize_vector(eef_pos, object_pos) / 100
+        panda_sim.execute([control[0], control[1], 0, 1.2])
 
-    ctrls = [[0.02, 0, 0, 10],
-             [0, 0.02, 0, 10],
-             [-0.02, 0, 0, 10],
-             [0, -0.02, 0, 10]]
-    errs = []
-    for _ in range(10):
-      for ctrl in ctrls:
-        wpts_ref = utils.extract_reference_waypoints(panda_sim, ctrl)
-        wpts, _ = panda_sim.execute(ctrl)
-        err_pos = np.mean(np.linalg.norm(wpts[:, 0:2] - wpts_ref[:, 0:2], axis=1))
-        err_orn = np.mean(np.abs(wpts[:, 2] - wpts_ref[:, 2]))
-        print("The average Cartesian error for executing the last control:")
-        print("Position: %f meters\t Orientation: %f rads" % (err_pos, err_orn))
-        errs.append([err_pos, err_orn])
-    errs = np.array(errs)
-    print("\nThe average Cartesian error for the entire exeution:")
-    print("Position: %f meters\t Orientation: %f rads" % (errs[:, 0].mean(), errs[:, 1].mean()))
+    # Generate a few random controls after getting contact to estimate the model
+      object_pos = panda_sim.get_object_pos()
+      eef_pos, _ = panda_sim.get_ee_pose()
+      pos_angle = get_pos_angle(eef_pos, object_pos)
+      oppo_pos_angle = utils.normalize_angle(pos_angle + math.pi)
+      # print("normal", oppo_pos_angle, "pos_angle", pos_angle)
+      control_angle = random.uniform(-1.2, 1.2)
+      # control_angle = -1
+      # control_angle = random.uniform(-math.pi, math.pi)
 
+      control_x = math.cos(control_angle + oppo_pos_angle) / 4000
+      control_y = math.sin(control_angle + oppo_pos_angle) / 4000
+      # control_x = math.cos(control_angle) / 200
+      # control_y = math.sin(control_angle) / 200
+      # print("execution", control_angle + oppo_pos_angle, "control angle", control_angle)
+      panda_sim.execute([control_x, control_y, 0, 0.5])
+      current_object_velocity, _ = panda_sim.get_object_velocity()
+      while (math.sqrt(current_object_velocity[0] ** 2 + current_object_velocity[1] ** 2 + current_object_velocity[2] ** 2) > 0.0001):
+        current_object_velocity, _ = panda_sim.get_object_velocity()
+        panda_sim.execute([0, 0, 0, 1])
+      end_object_pos = panda_sim.get_object_pos()
+      object_vel_angle = math.atan2((end_object_pos[1] - object_pos[1]), (end_object_pos[0] - object_pos[0]))
+      # print("result", object_vel_angle)
+      object_vel_angle = utils.normalize_angle(object_vel_angle - oppo_pos_angle)
+      dataset.append((control_angle, object_vel_angle))
+      print(len(dataset))
 
-  else:
-    # configure the simulation and the problem
-    utils.setup_env(panda_sim)
-    pdef = setup_pdef(panda_sim)
+    data = np.array(dataset)
 
-    # Task 2: Kinodynamic RRT Planning for Relocating
-    if args.task == 6:
-      goal = RelocateGoal()
-      pdef.set_goal(goal)
+    # Plot the data collected
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.set_xlim([-math.pi, math.pi])
+    ax.set_ylim([-math.pi, math.pi])
 
-      planner = rrt.KinodynamicRRT(pdef)
-      time_st = time.time()
-      solved, plan = planner.solve(120.0)
-      print("Running time of rrt.KinodynamicRRT.solve(): %f secs" % (time.time() - time_st))
+    control_angles = data[:, 0]
+    object_vel_angles = data[:, 1]
 
-      if solved:
-        print("The Plan has been Found:")
-        panda_sim.restore_state(pdef.get_start_state())
-        for _ in range(2):
-          panda_sim.step()
-        panda_sim.restore_state(pdef.get_start_state())
-        utils.execute_plan(panda_sim, plan)
-        while True:
-          pass
+    ax.scatter(control_angles, object_vel_angles)
 
-    # Task 3: Kinodynamic RRT Planning for Grasping
-    elif args.task == 3:
-      goal = GraspGoal()
-      pdef.set_goal(goal)
+    ax.set_xlabel('Control Angle')
+    ax.set_ylabel('Object Velocity Angle')
 
-      planner = rrt.KinodynamicRRT(pdef)
-      time_st = time.time()
-      solved, plan = planner.solve(120.0)
-      print("Running time of rrt.KinodynamicRRT.solve(): %f secs" % (time.time() - time_st))
+    plt.show()
 
-      if solved:
-        print("The Plan has been Found:")
-        panda_sim.restore_state(pdef.get_start_state())
-        for _ in range(2):
-          panda_sim.step()
-        panda_sim.restore_state(pdef.get_start_state())
-        utils.execute_plan(panda_sim, plan)
-        panda_sim.grasp()
-        while True:
-          pass
+    # Linearize / Polynomial Regress the collected data
+    x = data[:, 0]
+    y = data[:, 1]
 
-    # Task 4: Trajectory Optimization
-    elif args.task == 4:
-      ########## TODO ##########
-      goal = RelocateGoal()
-      pdef.set_goal(goal)
+    linear_model = LinearRegression().fit(x.reshape(-1, 1), y)
 
-      planner = rrt.KinodynamicRRT(pdef)
-      time_st = time.time()
-      solved, plan = planner.solve(120.0)
-      print("Running time of rrt.KinodynamicRRT.solve(): %f secs" % (time.time() - time_st))
+    # Score of the linear model
+    linear_score = r2_score(y, linear_model.predict(x.reshape(-1, 1)))
+    plt.figure(figsize=(10, 6))
+    plt.scatter(x, y, color='blue', label='Data Points')
+    plt.title('Linear Model Regression')
+    plt.xlabel('X')
+    plt.ylabel('Y')
 
-      if solved:
-        print("The Plan has been Found and Optimizing!")
-        panda_sim.restore_state(pdef.get_start_state())
-        for _ in range(2):
-          panda_sim.step()
-        panda_sim.restore_state(pdef.get_start_state())
-        utils.execute_plan(panda_sim, plan) 
-        optimizer = opt.Optimization(pdef)
-        plan = optimizer.path_optimization(plan)
-        panda_sim.restore_state(pdef.get_start_state())
-        for _ in range(2):
-          panda_sim.step()
-        panda_sim.restore_state(pdef.get_start_state())
-        utils.execute_optimized_plan(panda_sim, plan) 
-        while True:
-          pass
-      pass
+    x_fit = np.linspace(x.min(), x.max(), 400)
+    y_fit = linear_model.predict(x_fit.reshape(-1, 1))
+    plt.plot(x_fit, y_fit, color='red', label='Linear Fit')
+    plt.legend()
+    plt.show()
 
-    
-      ##########################
+    while True:
+      object_pos = panda_sim.get_object_pos()
+      #Check if the goal state is achieved
+      if (utils.distance(object_pos, panda_sim.cylinder_push_goal) < 0.002):
+        print("Goal reached!!!")
+        time.sleep(10000)
+      eef_pos, _ = panda_sim.get_ee_pose()
+      pos_angle = math.atan2((eef_pos[1] - object_pos[1]), (eef_pos[0] - object_pos[0]))
+      oppo_pos_angle = utils.normalize_angle(pos_angle + math.pi)
+
+      desired_object_vel_angle = math.atan2(panda_sim.cylinder_push_goal[1] - object_pos[1], panda_sim.cylinder_push_goal[0] - object_pos[0])
+      desired_object_vel_angle = utils.normalize_angle(desired_object_vel_angle - oppo_pos_angle)
+
+      x_range = np.linspace(-1, 1, 400)
+      y_pred = linear_model.predict(x_range.reshape(-1, 1))
+
+      differences = np.abs(y_pred - desired_object_vel_angle)
+
+      min_diff_x = np.argmin(differences)
+      x_closest = x_range[min_diff_x]
+      print("x_closest = ", x_closest)
+      x_closest += oppo_pos_angle
+
+      control_x = math.cos(x_closest) / 4000
+      control_y = math.sin(x_closest) / 4000
+      manipulability = panda_sim.get_manipulability()
+      if (manipulability < 0.1):
+        control_x *= 10
+        control_y *= 10
+        panda_sim.execute([control_x, control_y, 0, 0.02])
+
+      print(manipulability)
+      # # if (manipulability < 0.01):
+      # panda_sim.freeze_panda()        
+      # #   panda_sim.bullet_client.stepSimulation()
+      
