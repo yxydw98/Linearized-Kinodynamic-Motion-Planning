@@ -27,8 +27,36 @@ p.resetDebugVisualizerCamera(cameraDistance=2.0, cameraYaw=90, cameraPitch=-80, 
 
 # Load a plane and a table
 planeId = p.loadURDF("plane.urdf")
-TId = p.loadURDF("objects/T.urdf", basePosition = [0, 0, 0])
-T2Id = p.loadURDF("objects/T.urdf", basePosition = [0, 1.5, 0])
+obj_file = "objects/T.obj"
+visual_shape_id = p.createVisualShape(shapeType=p.GEOM_MESH,
+                                      fileName=obj_file,
+                                      rgbaColor=[1, 0, 0, 1],
+                                      meshScale=[2, 2, 2])
+
+collision_shape_id = p.createCollisionShape(shapeType=p.GEOM_MESH,
+                                            fileName=obj_file,
+                                            meshScale=[2, 2, 2])
+
+TId = p.createMultiBody(baseMass=1,
+                           baseInertialFramePosition=[0,0,0],
+                           baseCollisionShapeIndex=collision_shape_id,
+                           baseVisualShapeIndex=visual_shape_id,
+                           basePosition=[0,0,0],
+                           baseOrientation=[0,0,0,1])
+
+T2Id = p.createMultiBody(baseMass=1,
+                           baseInertialFramePosition=[0,0,0],
+                           baseCollisionShapeIndex=collision_shape_id,
+                           baseVisualShapeIndex=visual_shape_id,
+                           basePosition=[0,1.5,0],
+                           baseOrientation=[0,0,0,1])
+# p.changeDynamics(bodyUniqueId=TId,
+#                  linkIndex=-1,  # -1 refers to the base link
+#                  lateralFriction=0.5)
+
+# p.changeDynamics(bodyUniqueId=T2Id,
+#                  linkIndex=-1,  # -1 refers to the base link
+#                  lateralFriction=0.5)
 # tableId = p.loadURDF("table/table.urdf", basePosition=[0, 0, 0])
 
 # Assuming the table height is around 0.7 meters
@@ -51,25 +79,31 @@ p.createMultiBody(baseMass=0, baseVisualShapeIndex=visGoalID, basePosition=[goal
 disk1Id = p.createMultiBody(baseMass=disk_mass, baseCollisionShapeIndex=disk1, basePosition=[0.5, 0, disk_height/2])
 disk2Id = p.createMultiBody(baseMass=disk_mass, baseCollisionShapeIndex=disk1, basePosition=[0.5, 1.5, disk_height/2])
 
-p.changeDynamics(TId, -1, lateralFriction=0, restitution=1)
-p.changeDynamics(T2Id, -1, lateralFriction=0, restitution=1)
+p.changeDynamics(TId, -1, lateralFriction=0.5, restitution=1)
+p.changeDynamics(T2Id, -1, lateralFriction=0.5, restitution=1)
 
 # p.resetBaseVelocity(disk1Id, linearVelocity=[0, 1, 0])
 
 y_vel = 0
 y2_vel = 0
+counter = 0
 while True:
-    p.resetBaseVelocity(disk1Id, linearVelocity=[-0.2, y_vel, 0])
-    p.resetBaseVelocity(disk2Id, linearVelocity=[-0.2, y2_vel, 0])
+    counter += 1
+    p.resetBaseVelocity(disk1Id, linearVelocity=[-2, y_vel, 0])
+    p.resetBaseVelocity(disk2Id, linearVelocity=[-2, y2_vel, 0])
     contacts = p.getContactPoints(TId, disk1Id)
 
     obj_pos, obj_ori = p.getBasePositionAndOrientation(TId)
+    obj2_pos, obj2_ori = p.getBasePositionAndOrientation(T2Id)
     rob_pos, rob_ori = p.getBasePositionAndOrientation(disk1Id)
     
     if contacts:
         # p.resetBaseVelocity(disk1Id, linearVelocity=[-0.2, -0.2, 0])
-        y_vel = 0.2
-        y2_vel = -0.2
+        y_vel = 2
+        y2_vel = -2
     # print(obj_pos, obj_ori)
+        
+    if (counter == 1000):
+        print("Object1 position", obj_pos, "Object2 position", obj2_pos)
     p.stepSimulation()
     time.sleep(timeStep)

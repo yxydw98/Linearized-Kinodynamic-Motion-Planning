@@ -41,6 +41,9 @@ def setup_cube_push(panda_sim):
 
 def setup_triangle_push(panda_sim):
   panda_sim.add_triangle([1.0, 1.0, 0.0, 1.0], [0.1, 0.1])
+
+def setup_dynamic_triangle_push(panda_sim):
+  panda_sim.add_dynamic_triangle([1.0, 1.0, 0.0, 1.0], [0.1, 0.1])
 def execute_plan(panda_sim, plan, sleep_time=0.005):
   for node in plan:
     #panda_sim.restore_state(node.state)

@@ -50,7 +50,7 @@ class PandaSim(object):
                                                      rgbaColor=[1.0, 0.0, 0.0, 1.0])
     # self.cylinder_push_goal = [0, -0.15]
     self.cylinder_push_goal = [-0.2, -0.2] # Goal close to the base of the arm
-    # self.cylinder_push_goal = [0.5, 0.5]
+    # self.cylinder_push_goal = [0.4, 0.4] # Goal outside the region
     self.bullet_client.createMultiBody(baseMass=0, baseVisualShapeIndex=visGoalID, basePosition=[self.cylinder_push_goal[0], self.cylinder_push_goal[1], 0])
     # self.bullet_client.resetDebugVisualizerCamera(cameraDistance=0.1, cameraYaw=90, cameraPitch=-80, cameraTargetPosition=[0, 0, 0.75])
 
@@ -111,7 +111,7 @@ class PandaSim(object):
   def add_dynamic_cylinder(self, radius, rgbaColor, pos):
     self.dynamic = 1
     colCylID = self.bullet_client.createCollisionShape(self.bullet_client.GEOM_CYLINDER, radius=radius, height=0.025)
-    self.cylinder = self.bullet_client.createMultiBody(baseMass=5, baseCollisionShapeIndex=colCylID, basePosition=[pos[0], pos[1], 0.0125])
+    self.cylinder = self.bullet_client.createMultiBody(baseMass=2, baseCollisionShapeIndex=colCylID, basePosition=[pos[0], pos[1], 0.0125])
     self.bullet_client.changeDynamics(self.cylinder, -1, lateralFriction=0.01, restitution=1)
 
   def add_triangle(self, rgbaColor, pos):
@@ -128,7 +128,11 @@ class PandaSim(object):
                                                        basePosition=[pos[0], pos[1], 0.02],
                                                        baseOrientation=quaternion)
     self.bullet_client.changeDynamics(self.triangle, -1, lateralFriction=0.1, restitution=1)
-    
+  
+  def add_dynamic_triangle(self, rgbaColor, pos):
+    self.add_triangle(rgbaColor, pos)
+    self.dynamic = 1
+  
   def add_object(self, halfExtents, rgbaColor, pos):
     """
     Add one movable box object in the simulation.
@@ -222,16 +226,16 @@ class PandaSim(object):
         self.freeze_panda()
 
     self.bullet_client.stepSimulation()
-    if (self.dynamic is not None):
-      return
-    if (self.cylinder is not None):
-      self.bullet_client.resetBaseVelocity(self.cylinder, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
+    # if (self.dynamic is not None):
+    #   return
+    # if (self.cylinder is not None):
+    #   self.bullet_client.resetBaseVelocity(self.cylinder, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
 
-    if (self.cube is not None):
-      self.bullet_client.resetBaseVelocity(self.cube, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
+    # if (self.cube is not None):
+    #   self.bullet_client.resetBaseVelocity(self.cube, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
     
-    if (self.triangle is not None):
-      self.bullet_client.resetBaseVelocity(self.triangle, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
+    # if (self.triangle is not None):
+    #   self.bullet_client.resetBaseVelocity(self.triangle, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
   
   def execute(self, ctrl, sleep_time=0.0):
     """
@@ -299,8 +303,7 @@ class PandaSim(object):
       self.bullet_client.setJointMotorControl2(bodyUniqueId=self.panda,
                             jointIndex=joint_index,
                             controlMode=self.bullet_client.VELOCITY_CONTROL,
-                            targetVelocity=0,
-                            force=0)
+                            targetVelocity=0)
       
   def get_joint_states(self):
     """
@@ -336,7 +339,10 @@ class PandaSim(object):
     return self.jac_solver.get_jacobian_matrix(joint_values)
   
   def get_object_velocity(self):
-    return self.bullet_client.getBaseVelocity(self.cylinder)
+    if (self.cylinder is not None):
+      return self.bullet_client.getBaseVelocity(self.cylinder)
+    if (self.triangle is not None):
+      return self.bullet_client.getBaseVelocity(self.triangle)
   
   def get_ee_pose(self):
     """
