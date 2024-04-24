@@ -9,6 +9,9 @@ import sim
 from pdef import Bounds, ProblemDefinition
 from goal import RelocateGoal, GraspGoal
 from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures
+
 from sklearn.metrics import r2_score
 import rrt
 import utils
@@ -59,6 +62,10 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
   parser.add_argument("--task", type=int, choices=[0, 1, 2, 3, 4, 5, 6])
+  parser.add_argument("--pretraining", action="store_true", help="Enable pretraining mode")
+  parser.add_argument("--shift_angle", type=float, default=0.0, help="Shift angle from directly opposite the goal")
+  parser.add_argument("--save_data", action="store_true", help="Save the data for this round of training")
+
   args = parser.parse_args()
 
   # set up the simulation
@@ -303,11 +310,6 @@ if __name__ == "__main__":
     plt.xlabel('X')
     plt.ylabel('Y')
 
-    x_fit = np.linspace(x.min(), x.max(), 400)
-    y_fit = linear_model.predict(x_fit.reshape(-1, 1))
-    plt.plot(x_fit, y_fit, color='red', label='Linear Fit')
-    plt.legend()
-    # plt.show()
 
     while True:
       object_pos = panda_sim.get_object_pos()
@@ -339,7 +341,7 @@ if __name__ == "__main__":
       panda_sim.execute([control_x, control_y, 0, 0.2])
 
 if args.task == 3:
-    utils.setup_dynamic_cylinder_push(panda_sim) #cylinder radius = 0.02
+    utils.setup_dynamic_cylinder_push(panda_sim, 0.01) #cylinder radius = 0.02
     pdef = setup_pdef(panda_sim)
     object_pos = panda_sim.get_object_pos()
     eef_pos, _ = panda_sim.get_ee_pose()
@@ -449,6 +451,7 @@ if args.task == 3:
       if (manipulability < 0.05):
         panda_sim.execute([-control_x, -control_y, 0, 15])
         panda_sim.execute([control_x * 10, control_y * 10, 0 ,2])
+        panda_sim.step()
         # control_x *= 10
         # control_y *= 10
       panda_sim.execute([control_x, control_y, 0, 0.02])
@@ -575,3 +578,159 @@ if args.task == 4:
 
       print(manipulability)
 
+if args.task==5:
+  utils.setup_dynamic_cylinder_push(panda_sim, 0.002)
+  pdef = setup_pdef(panda_sim)
+  # Collect data by pushing mildly towards the center to avoid manipulability limits
+  start = -0.8
+  end = 0.8
+  num_points = 50
+  step = (end - start) / (num_points - 1)
+  # control_angles = [-0.8, -0.7, -0.6, -0.4, 0, 0.1, 0.2, 0.4, 0.5, 0.7]
+  control_angles = [start + i * step for i in range(num_points)]
+
+  dataset = []
+  if args.pretraining:
+    for _ in range (0, num_points):
+      object_pos = panda_sim.get_object_pos()
+      print("object position", object_pos)
+      # origin = [0.1, 0.1]
+      origin = [0.1, 0.1]
+      # Assuming pushing towards [0.1, 0.1]
+      pos_angle = math.atan2(object_pos[1]- origin[1], object_pos[0]- origin[0])
+      oppo_pos_angle = utils.normalize_angle(pos_angle + math.pi)
+      coordinates = [object_pos[0] + 0.04 * math.cos(pos_angle), object_pos[1] + 0.04 * math.sin(pos_angle)]
+      print("coordinates", coordinates)
+      panda_sim.move(coordinates)
+      control_angle = control_angles[_]
+      # control_angle = random.uniform(-0.7, 0.7)
+      print(control_angle)
+      # control_angle = 0
+      execution_angle = control_angle + oppo_pos_angle
+      control_x = math.cos(execution_angle) / 35
+      control_y = math.sin(execution_angle) / 35
+      print("control", control_x, control_y)
+      print("start executing")
+      wpts, valid = panda_sim.execute([control_x, control_y, 0, 1])
+      panda_sim.freeze_panda()
+      # panda_sim.execute([0, 0, 0, 1])
+      print("finish executing")
+      current_object_velocity, _ = panda_sim.get_object_velocity()
+      while (math.sqrt(current_object_velocity[0] ** 2 + current_object_velocity[1] ** 2) > 0.0001):
+        current_object_velocity, _ = panda_sim.get_object_velocity()
+        # print("Velocity", math.sqrt(current_object_velocity[0] ** 2 + current_object_velocity[1] ** 2))
+        panda_sim.step()
+      end_object_pos = panda_sim.get_object_pos()
+      object_vel_angle = math.atan2((end_object_pos[1] - object_pos[1]), (end_object_pos[0] - object_pos[0]))
+      object_vel_angle = utils.normalize_angle(object_vel_angle - oppo_pos_angle)
+      displacement = math.sqrt((end_object_pos[0] - object_pos[0]) ** 2 + (end_object_pos[1] - object_pos[1]) ** 2)
+      if (displacement > 0.01 and valid):
+        dataset.append((control_angle, object_vel_angle))
+      print(len(dataset))
+    data = np.array(dataset)
+    if args.save_data:
+      np.save("dynamic_cylinder_push.npy", data)
+  else:
+    data = np.load("dynamic_cylinder_push.npy")
+  fig = plt.figure()
+  ax = fig.add_subplot(111)
+  ax.set_xlim([-math.pi, math.pi])
+  ax.set_ylim([-math.pi, math.pi])
+
+  control_angles = data[:, 0]
+  object_vel_angles = data[:, 1]
+  
+
+  ax.scatter(control_angles, object_vel_angles)
+  ax.set_xlabel('Control Angle')
+  ax.set_ylabel('Object Velocity Angle')
+
+  plt.show()
+
+  x = data[:, 0]
+  y = data[:, 1]
+
+  linear_model = LinearRegression().fit(x.reshape(-1, 1), y)
+
+      # Score of the linear model
+  linear_score = r2_score(y, linear_model.predict(x.reshape(-1, 1)))
+  plt.figure(figsize=(10, 6))
+  plt.scatter(x, y, color='blue', label='Data Points')
+  plt.title('Linear Model Regression')
+  plt.xlabel('X')
+  plt.ylabel('Y')
+
+  degrees = [2, 3, 4, 5]
+  polynomial_models = []
+  scores = []
+
+  for degree in degrees:
+    poly_model = make_pipeline(PolynomialFeatures(degree), LinearRegression())
+    poly_model.fit(x.reshape(-1, 1), y)
+    polynomial_models.append(poly_model)
+    
+    # Predict and evaluate
+    y_pred = poly_model.predict(x.reshape(-1, 1))
+    score = r2_score(y, y_pred)
+    scores.append(score)
+    x_fit = np.linspace(x.min(), x.max(), 400)
+    y_fit = linear_model.predict(x_fit.reshape(-1, 1))
+    plt.plot(x_fit, y_fit, color='red', label='Linear Fit')
+    plt.legend()
+    # plt.show()
+  best_model = polynomial_models[1]
+  # best_model = linear_model
+  x_fit = np.linspace(x.min(), x.max(), 400)
+  y_fit = best_model.predict(x_fit.reshape(-1, 1))
+  plt.plot(x_fit, y_fit, color='red', label='Linear Fit')
+  plt.legend()
+
+  plt.show()
+
+  object_pos = panda_sim.get_object_pos()
+  eef_pos, _ = panda_sim.get_ee_pose()
+
+  desired_object_vel_angle = math.atan2(panda_sim.cylinder_push_goal[1] - object_pos[1], panda_sim.cylinder_push_goal[0] - object_pos[0])
+  shift_angle = args.shift_angle
+  pos_angle = utils.normalize_angle(desired_object_vel_angle + math.pi + shift_angle)
+  # pos_angle = utils.normalize_angle(desired_object_vel_angle + math.pi)
+  oppo_pos_angle = utils.normalize_angle(pos_angle + math.pi)
+  desired_object_vel_angle = utils.normalize_angle(desired_object_vel_angle - oppo_pos_angle)
+  # desired_object_vel_angle = 0
+
+  coordinates = [object_pos[0] + 0.04 * math.cos(pos_angle), object_pos[1] + 0.04 * math.sin(pos_angle)]
+  panda_sim.move(coordinates)
+
+  x_range = np.linspace(-0.8, 0.8, 1000)
+  y_pred = best_model.predict(x_range.reshape(-1, 1))
+
+  differences = np.abs(y_pred - desired_object_vel_angle)
+
+  min_diff_x = np.argmin(differences)
+  x_closest = x_range[min_diff_x]
+  print("x_closest = ", x_closest)
+  x_closest += oppo_pos_angle
+  
+  # hit directly in the direction of the goal
+  # x_closest = oppo_pos_angle
+  control_x = math.cos(x_closest) / 10
+  control_y = math.sin(x_closest) / 10
+
+  time.sleep(1)
+  panda_sim.execute([control_x, control_y, 0, 1])
+  panda_sim.execute([0, 0, 0, 5])
+  
+  current_object_velocity, _ = panda_sim.get_object_velocity()
+  while (math.sqrt(current_object_velocity[0] ** 2 + current_object_velocity[1] ** 2) > 0.0001):
+      current_object_velocity, _ = panda_sim.get_object_velocity()
+      # print("Velocity", math.sqrt(current_object_velocity[0] ** 2 + current_object_velocity[1] ** 2))
+      panda_sim.step()
+
+  time.sleep(10000)
+
+if args.task==6:
+  utils.setup_dynamic_cylinder_push(panda_sim, 0.005)
+  pdef = setup_pdef(panda_sim)
+
+  panda_sim.move([0,0])
+  panda_sim.move([0.1, 0.1])

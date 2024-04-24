@@ -1,7 +1,7 @@
 import numpy as np
 import jac
 import time
-
+import math
 
 # Parameters, PLEASE DO NOT CHANGE
 useNullSpace = 1
@@ -48,10 +48,29 @@ class PandaSim(object):
     visGoalID = self.bullet_client.createVisualShape(self.bullet_client.GEOM_CYLINDER,
                                                      radius=0.02, length=1e-3,
                                                      rgbaColor=[1.0, 0.0, 0.0, 1.0])
-    # self.cylinder_push_goal = [0, -0.15]
-    self.cylinder_push_goal = [-0.2, -0.2] # Goal close to the base of the arm
+    originID = self.bullet_client.createVisualShape(self.bullet_client.GEOM_CYLINDER,
+                                                    radius = 0.001, length=1e-3,
+                                                    rgbaColor=[1.0, 0.0, 0.0, 1.0])
+    # self.cylinder_push_goal = [-0.2, 0.3]
+    # self.cylinder_push_goal = [0.3, -0.3]
+    # self.cylinder_push_goal = [-0.2, -0.15]
+    # self.cylinder_push_goal = [0.2, 0.2]
+    # self.cylinder_push_goal = [0.3, 0.3]
+    # self.cylinder_push_goal = [0.5, -0.2]
+    self.cylinder_push_goal = [0.4, 0.4]
+    # self.cylinder_push_goal = [0.5, 0.5]
+    # self.cylinder_push_goal = [-0.3, -0.4]
+    # self.cylinder_push_goal = [-0.2, -0.2] # Goal close to the base of the arm
+    goalCylID = self.bullet_client.createCollisionShape(self.bullet_client.GEOM_CYLINDER, radius=0.02, height=0.025)
+    self.cylinder = self.bullet_client.createMultiBody(baseMass=1, baseCollisionShapeIndex=goalCylID, basePosition=[self.cylinder_push_goal[0], self.cylinder_push_goal[1], 0.0125])
+    self.bullet_client.changeDynamics(self.cylinder, -1, lateralFriction=0.0, restitution=1)
+
+
     # self.cylinder_push_goal = [0.4, 0.4] # Goal outside the region
     self.bullet_client.createMultiBody(baseMass=0, baseVisualShapeIndex=visGoalID, basePosition=[self.cylinder_push_goal[0], self.cylinder_push_goal[1], 0])
+    # Mark the origin
+
+    self.bullet_client.createMultiBody(baseMass=0, baseVisualShapeIndex=originID, basePosition=[0, 0, 0])
     # self.bullet_client.resetDebugVisualizerCamera(cameraDistance=0.1, cameraYaw=90, cameraPitch=-80, cameraTargetPosition=[0, 0, 0.75])
 
     # setup the Panda robot arm
@@ -108,11 +127,11 @@ class PandaSim(object):
                                              basePosition=[pos[0], pos[1], 0.02])
     self.bullet_client.changeDynamics(self.cube, -1, lateralFriction=0, restitution=1)
 
-  def add_dynamic_cylinder(self, radius, rgbaColor, pos):
+  def add_dynamic_cylinder(self, radius, rgbaColor, pos, friction):
     self.dynamic = 1
     colCylID = self.bullet_client.createCollisionShape(self.bullet_client.GEOM_CYLINDER, radius=radius, height=0.025)
     self.cylinder = self.bullet_client.createMultiBody(baseMass=2, baseCollisionShapeIndex=colCylID, basePosition=[pos[0], pos[1], 0.0125])
-    self.bullet_client.changeDynamics(self.cylinder, -1, lateralFriction=0.01, restitution=1)
+    self.bullet_client.changeDynamics(self.cylinder, -1, lateralFriction=friction, restitution=1)
 
   def add_triangle(self, rgbaColor, pos):
     obj_file = "assets/triangle.obj"
@@ -224,18 +243,73 @@ class PandaSim(object):
     if not self.pdef.is_state_high_quality(J):
         print("Freezing panda")
         self.freeze_panda()
+    if self.dynamic is None:
+      if (self.cylinder is not None):
+        self.bullet_client.resetBaseVelocity(self.cylinder, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
 
+      if (self.cube is not None):
+        self.bullet_client.resetBaseVelocity(self.cube, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
+      
+      if (self.triangle is not None):
+        self.bullet_client.resetBaseVelocity(self.triangle, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
+  
     self.bullet_client.stepSimulation()
     # if (self.dynamic is not None):
     #   return
-    # if (self.cylinder is not None):
-    #   self.bullet_client.resetBaseVelocity(self.cylinder, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
 
-    # if (self.cube is not None):
-    #   self.bullet_client.resetBaseVelocity(self.cube, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
-    
-    # if (self.triangle is not None):
-    #   self.bullet_client.resetBaseVelocity(self.triangle, linearVelocity=[0, 0, 0], angularVelocity = [0, 0, 0])
+  def lift(self, ctrl=None):
+    """
+    Control the end effector to lift up
+    Default parameters to be set as [0.01, 4]
+    """
+    if ctrl is None:
+      ctrl = [0.01, 4]
+    valid = True
+    vx = np.array([0, 0, ctrl[0], 0, 0, 0])
+    n_steps = int(ctrl[1] / SimTimeStep)
+    for i in range (n_steps):
+      J = self.get_jacobian_matrix_online()
+      J_pseudeo_inv = np.linalg.pinv(J)
+      vq = np.dot(J_pseudeo_inv, vx)
+
+      if not self.pdef.is_state_high_quality(J):
+        valid = False
+        print("not high quality")
+        break
+      self.bullet_client.setJointMotorControlArray(self.panda,
+                                                   range(pandaNumDofs),
+                                                   self.bullet_client.VELOCITY_CONTROL,
+                                                   targetVelocities=vq)
+      self.step()
+  
+  def normalize_vector(self, origin, target):
+    vector_diff = np.array([target[0] - origin[0], target[1] - origin[1]])
+    magnitude = np.linalg.norm(vector_diff)
+
+    if magnitude > 0:
+      normalized_vector = vector_diff / magnitude
+    else:
+      normalized_vector = vector_diff
+
+    return normalized_vector
+
+
+  def move(self, coordinates):
+    """
+    Move the end effector in the air to a certain coordinate
+    args: coordinates: [2, ]
+          coordinates: [3, ]
+    """
+    self.lift()
+    eef_pose, _ = self.get_ee_pose()
+    while (math.sqrt((coordinates[0] - eef_pose[0]) ** 2 + (coordinates[1] - eef_pose[1]) ** 2) > 0.001):
+      eef_pose, _ = self.get_ee_pose()
+      # print("current coordinates", eef_pose)
+      # print("current distance", math.sqrt((coordinates[0] - eef_pose[0]) ** 2 + (coordinates[1] - eef_pose[1]) ** 2))
+      control = self.normalize_vector(eef_pose, coordinates) / 100
+      self.execute([control[0], control[1], 0, 0.05])
+    self.lift([-0.01, 4])
+
   
   def execute(self, ctrl, sleep_time=0.0):
     """
@@ -276,6 +350,7 @@ class PandaSim(object):
 
       if not self.pdef.is_state_high_quality(J):
         valid = False
+        print("Not high quality")
         self.step()
         break
 
@@ -287,6 +362,9 @@ class PandaSim(object):
 
       if (i + 1) % 48 == 0: # check for every 0.2 second
         if not self.pdef.is_state_valid(self.save_state()):
+          print("Not high quality")
+          for j in range(pandaNumDofs):
+            self.bullet_client.resetJointState(self.panda, j, pandaStartJoints[j])
           valid = False
           break
 

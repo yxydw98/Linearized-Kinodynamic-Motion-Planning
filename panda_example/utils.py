@@ -30,8 +30,8 @@ def setup_env(panda_sim):
   panda_sim.add_object([0.02, 0.02, 0.02], [0.0, 0.0, 1.0, 1.0], [0, 0.05])
   panda_sim.add_object([0.02, 0.02, 0.02], [0.0, 0.0, 1.0, 1.0], [0.05, 0.05])
 
-def setup_dynamic_cylinder_push(panda_sim):
-  panda_sim.add_dynamic_cylinder(0.02, [1.0, 1.0, 0.0, 1.0], [0.03, 0.075])
+def setup_dynamic_cylinder_push(panda_sim, friction):
+  panda_sim.add_dynamic_cylinder(0.02, [1.0, 1.0, 0.0, 1.0], [0.03, 0.075], friction)
   
 def setup_cylinder_push(panda_sim):
   panda_sim.add_cylinder(0.02, [1.0, 1.0, 0.0, 1.0], [0.03, 0.075])
@@ -44,6 +44,7 @@ def setup_triangle_push(panda_sim):
 
 def setup_dynamic_triangle_push(panda_sim):
   panda_sim.add_dynamic_triangle([1.0, 1.0, 0.0, 1.0], [0.1, 0.1])
+
 def execute_plan(panda_sim, plan, sleep_time=0.005):
   for node in plan:
     #panda_sim.restore_state(node.state)

@@ -129,7 +129,7 @@ class ProblemDefinition(object):
         """
         ########## TODO ##########
         manipulability = np.sqrt(np.linalg.det(np.dot(J, J.T)))
-        if manipulability < 0.01:
+        if manipulability < 0.005:
             # print("is not high quality", manipulability)
             return False
         # print("manipulability", manipulability)

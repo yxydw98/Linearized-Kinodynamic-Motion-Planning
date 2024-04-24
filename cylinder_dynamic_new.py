@@ -72,7 +72,7 @@ prev_pos_diff = (0, 0)
 prev_robot_control = (0, 0)
 candidate_count = 20
 push_timestep = 50
-speed_scale = 6
+speed_scale = 4
 dataset = []
 
 timestep_counter = 0  # Initialize a counter to track the number of timesteps since the last position change
@@ -86,14 +86,14 @@ while (len(dataset) < bufferSize):
     # print("orientation format", object_)
     robot_actual_pos, _ = p.getBasePositionAndOrientation(disk1Id)
 
-    # pos_angle = random.uniform(-math.pi, math.pi)
-    pos_angle = math.pi
+    pos_angle = random.uniform(-math.pi, math.pi)
+    # pos_angle = math.pi
     oppo_pos_angle = pos_angle + math.pi
     oppo_pos_angle = normalize_angle(oppo_pos_angle)
     # print("pos_angle: ", pos_angle, "oppo_pos_angle", oppo_pos_angle)
 
-    robot_pos_x = object_pos[0] + 0.4 * math.cos(pos_angle)
-    robot_pos_y = object_pos[1] + 0.4 * math.sin(pos_angle)
+    robot_pos_x = object_pos[0] + 0.2 * math.cos(pos_angle)
+    robot_pos_y = object_pos[1] + 0.2 * math.sin(pos_angle)
 
     p.resetBasePositionAndOrientation(disk1Id, (robot_pos_x, robot_pos_y, disk_height/2), (1, 0, 0, 0))
     control_angle = random.uniform(-1.2, 1.2)
