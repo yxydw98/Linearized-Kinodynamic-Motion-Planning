@@ -51,19 +51,20 @@ class PandaSim(object):
     originID = self.bullet_client.createVisualShape(self.bullet_client.GEOM_CYLINDER,
                                                     radius = 0.001, length=1e-3,
                                                     rgbaColor=[1.0, 0.0, 0.0, 1.0])
+
     # self.cylinder_push_goal = [-0.2, 0.3]
-    # self.cylinder_push_goal = [0.3, -0.3]
+    self.cylinder_push_goal = [0.3, -0.3]
     # self.cylinder_push_goal = [-0.2, -0.15]
     # self.cylinder_push_goal = [0.2, 0.2]
     # self.cylinder_push_goal = [0.3, 0.3]
     # self.cylinder_push_goal = [0.5, -0.2]
-    self.cylinder_push_goal = [0.4, 0.4]
+    # self.cylinder_push_goal = [0.4, 0.4]
     # self.cylinder_push_goal = [0.5, 0.5]
     # self.cylinder_push_goal = [-0.3, -0.4]
     # self.cylinder_push_goal = [-0.2, -0.2] # Goal close to the base of the arm
-    goalCylID = self.bullet_client.createCollisionShape(self.bullet_client.GEOM_CYLINDER, radius=0.02, height=0.025)
-    self.cylinder = self.bullet_client.createMultiBody(baseMass=1, baseCollisionShapeIndex=goalCylID, basePosition=[self.cylinder_push_goal[0], self.cylinder_push_goal[1], 0.0125])
-    self.bullet_client.changeDynamics(self.cylinder, -1, lateralFriction=0.0, restitution=1)
+    # goalCylID = self.bullet_client.createCollisionShape(self.bullet_client.GEOM_CYLINDER, radius=0.02, height=0.025)
+    # self.cylinder = self.bullet_client.createMultiBody(baseMass=1, baseCollisionShapeIndex=goalCylID, basePosition=[self.cylinder_push_goal[0], self.cylinder_push_goal[1], 0.0125])
+    # self.bullet_client.changeDynamics(self.cylinder, -1, lateralFriction=0.0, restitution=1)
 
 
     # self.cylinder_push_goal = [0.4, 0.4] # Goal outside the region
@@ -137,16 +138,17 @@ class PandaSim(object):
     obj_file = "assets/triangle.obj"
     # obj_file = "assets/hammer.obj"
     # obj_file = "assets/banana.obj"
+    scale_factor = [0.7, 0.7, 1]
     euler_angles = [0, 0, 0]
     quaternion = self.bullet_client.getQuaternionFromEuler(euler_angles)
-    colTriID = self.bullet_client.createCollisionShape(shapeType=self.bullet_client.GEOM_MESH, fileName=obj_file)
-    visTriID = self.bullet_client.createVisualShape(shapeType = self.bullet_client.GEOM_MESH, fileName=obj_file, rgbaColor=rgbaColor)
+    colTriID = self.bullet_client.createCollisionShape(shapeType=self.bullet_client.GEOM_MESH, fileName=obj_file, meshScale=scale_factor)
+    visTriID = self.bullet_client.createVisualShape(shapeType = self.bullet_client.GEOM_MESH, fileName=obj_file, meshScale=scale_factor, rgbaColor=rgbaColor)
     self.triangle = self.bullet_client.createMultiBody(baseMass=1, 
                                                        baseCollisionShapeIndex=colTriID,
                                                        baseVisualShapeIndex=visTriID,
                                                        basePosition=[pos[0], pos[1], 0.02],
                                                        baseOrientation=quaternion)
-    self.bullet_client.changeDynamics(self.triangle, -1, lateralFriction=0.1, restitution=1)
+    self.bullet_client.changeDynamics(self.triangle, -1, lateralFriction=0.0, restitution=1)
   
   def add_dynamic_triangle(self, rgbaColor, pos):
     self.add_triangle(rgbaColor, pos)

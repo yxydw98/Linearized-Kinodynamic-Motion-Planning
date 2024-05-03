@@ -8,6 +8,20 @@ import math
 def normalize_angle(theta):
     return (theta + math.pi) % (2 * math.pi) - math.pi
 
+def generate_circular_trajectory(origin=[0.1, 0.1], radius=0.1):
+  radius = radius
+  center = np.array(origin)
+  num_points = 20
+  angles = np.linspace(0, 2 * np.pi, num_points, endpoint=False)
+
+  x_coords = center[0] + radius * np.cos(angles)
+  y_coords = center[1] + radius * np.sin(angles)
+
+  trajectory_points = np.column_stack((x_coords, y_coords))
+  # trajectory_points = np.vstack([trajectory_points, trajectory_points[0]])
+  
+  return trajectory_points
+
 def setup_bullet_client(connection_mode):
   bullet_client = bc.BulletClient(connection_mode=connection_mode)
   bullet_client.resetSimulation()

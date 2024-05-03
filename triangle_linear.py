@@ -45,14 +45,14 @@ disk2Id = p.createMultiBody(baseMass=1,
                            baseInertialFramePosition=[0,0,0],
                            baseCollisionShapeIndex=collision_shape_id,
                            baseVisualShapeIndex=visual_shape_id,
-                           basePosition=[0,0,1],
+                           basePosition=[0,0,0],
                            baseOrientation=[0,0,0,1])
 # Assuming the table height is around 0.7 meters
 table_height = 0.625
 
 # Dimensions for the disks
 disk_mass = 1
-disk_radius = 0.1
+disk_radius = 0.05
 disk_height = 0.05
 
 # goal_x_pos = -0.5
@@ -68,9 +68,9 @@ p.createMultiBody(baseMass=0, baseVisualShapeIndex=visGoalID, basePosition=[goal
 
 # Position the disks on the table
 # Adjust z-coordinate to be table_height plus half of disk height
-disk1Id = p.createMultiBody(baseMass=100, baseCollisionShapeIndex=disk1, basePosition=[0.5, 0, disk_height/2])
+disk1Id = p.createMultiBody(baseMass=1, baseCollisionShapeIndex=disk1, basePosition=[0.5, 0, disk_height/2])
 p.changeDynamics(disk1Id, -1, lateralFriction=0, restitution=1)
-p.changeDynamics(disk2Id, -1, lateralFriction=1, restitution=1)
+p.changeDynamics(disk2Id, -1, lateralFriction=0, restitution=1)
 
 # p.resetBaseVelocity(disk1Id, linearVelocity=[-3, 0, 0])
 
@@ -117,29 +117,23 @@ while (len(dataset) < bufferSize):
 
     p.resetBasePositionAndOrientation(disk1Id, (robot_pos_x, robot_pos_y, disk_height/2), (1, 0, 0, 0))
 
-    # control_angle = random.uniform(-math.pi, math.pi)
-    control_angle = random.uniform(-1, 1)
-    execution_angle = control_angle + oppo_pos_angle + object_2d_ori
-    control_x = math.cos(execution_angle)
-    control_y = math.sin(execution_angle)
-    # p.resetBaseVelocity(disk1Id, linearVelocity=[-math.cos(angle), -math.sin(angle), 0])
-    i = 0
-    contact = False
-    j = 0
-    while (i < push_timestep):
-        contact_points = p.getContactPoints(bodyA=disk1Id, bodyB=disk2Id)
-        if contact_points:
-            contact = True
-        if contact:
-            i += 1
-        j += 1
-        if (j >= 50):
-            break
-        p.resetBaseVelocity(disk1Id, linearVelocity=[control_x, control_y, 0])
-        p.resetBaseVelocity(disk2Id, linearVelocity=[0, 0, 0])
+    while (not(p.getContactPoints(bodyA=disk1Id, bodyB=disk2Id))):
+        p.resetBaseVelocity(disk1Id, linearVelocity=[math.cos(oppo_pos_angle), math.sin(oppo_pos_angle), 0])
         p.stepSimulation()
         time.sleep(timeStep)
-
+    
+    
+    # control_angle = random.uniform(-math.pi, math.pi)
+    control_angle = random.uniform(-1, 1)
+    execution_angle = control_angle + oppo_pos_angle - object_2d_ori
+    print(execution_angle)
+    control_x = math.cos(execution_angle) / 100
+    control_y = math.sin(execution_angle) / 100
+    for i in range (50):
+        p.resetBaseVelocity(disk1Id, linearVelocity = [control_x, control_y, 0])
+        p.resetBaseVelocity(disk2Id, linearVelocity = [0, 0, 0])
+        p.stepSimulation()
+        time.sleep(timeStep)
     end_pos, end_ = p.getBasePositionAndOrientation(disk2Id)
     end_ori = p.getEulerFromQuaternion(end_)
 
@@ -148,7 +142,7 @@ while (len(dataset) < bufferSize):
         object_vel_angle = math.atan2(end_pos[1] - object_pos[1], end_pos[0] - object_pos[0])
         object_ori_change = end_ori[2] - object_ori[2]
         object_vel_angle -= oppo_pos_angle
-        object_vel_angle = normalize_angle(object_vel_angle - object_2d_ori)
+        object_vel_angle = normalize_angle(object_vel_angle + object_2d_ori)
         # control_angle -= oppo_pos_angle
         # control_angle = normalize_angle(control_angle)
         print("Orientation change, ", object_ori_change)
